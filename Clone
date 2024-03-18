@@ -16,14 +16,7 @@ def conv_norm(x: keras.engine.keras_tensor.KerasTensor, units: int,
               filter: Tuple[int, int, int], stride : Tuple[int, int, int], 
               discriminator: bool = True
               ) -> keras.engine.keras_tensor.KerasTensor:
-#Convolutional layer
-#If convolution, LeakyReLU
-#If transposed convolution, ReLU
 
-  Returns:
-    The keras tensor after the convolution, normalization, and activation 
-    function.
-  """
   if discriminator:
     activation_function = LeakyReLU(alpha = 0.2)
     conv = Conv3D(units, filter, strides = stride, padding = 'valid')
@@ -34,6 +27,9 @@ def conv_norm(x: keras.engine.keras_tensor.KerasTensor, units: int,
   x = BatchNormalization()(x)
   x = activation_function(x) 
   return x
+#Convolutional layer
+#If convolution, LeakyReLU
+#If transposed convolution, ReLU
 
 def dense_norm(x: keras.engine.keras_tensor.KerasTensor, units: int, 
                discriminator: bool) -> keras.engine.keras_tensor.KerasTensor:
