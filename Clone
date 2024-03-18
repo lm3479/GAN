@@ -1,12 +1,14 @@
 import os
 import argparse
 import numpy as np
-import random
+from numpy import random
+from typing import Tuple
 import keras
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.models import Sequential, Model
-from tensorflow.keras.layers import Dense, Conv3D, Dropout, Input
-from tensorflow.keras.layers import Flatten, ReLU, Leaky ReELU, BatchNormalization, Reshape
+from tensorflow.keras.layers import Dense, Conv3D, Conv3DTranspose, Dropout, Input
+from tensorflow.keras.layers import Flatten, LeakyReLU, ReLU, BatchNormalization, Reshape
+#Importing necessary modules
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--data_path", type=str, help="Path to where the dataset is stored.")
@@ -16,7 +18,6 @@ def conv_norm(x: keras.engine.keras_tensor.KerasTensor, units: int,
               filter: Tuple[int, int, int], stride : Tuple[int, int, int], 
               discriminator: bool = True
               ) -> keras.engine.keras_tensor.KerasTensor:
-
   if discriminator:
     activation_function = LeakyReLU(alpha = 0.2)
     conv = Conv3D(units, filter, strides = stride, padding = 'valid')
@@ -31,8 +32,25 @@ def conv_norm(x: keras.engine.keras_tensor.KerasTensor, units: int,
 #If convolution, LeakyReLU
 #If transposed convolution, ReLU
 
+def conv_norm(x: keras.engine.keras_tensor.KerasTensor, units: int, 
+              filter: Tuple[int, int, int], stride : Tuple[int, int, int], 
+              discriminator: bool = True
+              ) -> keras.engine.keras_tensor.KerasTensor:
+  if discriminator:
+    activation_function = LeakyReLU(alpha = 0.2)
+    conv = Conv3D(units, filter, strides = stride, padding = 'valid')
+  else:
+    activation_function = ReLU()
+    conv = Conv3DTranspose(units, filter, strides = stride, padding = 'valid')
+  x = conv(x)
+  x = BatchNormalization()(x)
+  x = activation_function(x) 
+  return x
+#Applies either a convolution or transposed convolution
+#Returns keras tensor following convolution, normalization, and activation function
+
 def dense_norm(x: keras.engine.keras_tensor.KerasTensor, units: int, 
-               discriminator: bool) -> keras.engine.keras_tensor.KerasTensor:n.
+               discriminator: bool) -> keras.engine.keras_tensor.KerasTensor:
   if discriminator:
     activation_function = LeakyReLU(alpha = 0.2)
   else:
@@ -41,21 +59,12 @@ def dense_norm(x: keras.engine.keras_tensor.KerasTensor, units: int,
   x = BatchNormalization()(x)
   x = activation_function(x)
   return x
-#If dense_norm is present in the discriminator, the activation function will be Leaky ReLU
-#If dense_norm isn't present int he discriminator, the activation function will be ReLU
-#Returns keras tensor following layers 
+#Applying a dense layer, normalization, and an activation function
+#If dense_norm is present in discriminator, LeakyReLU
+#If dense_norm is not present, ReLU
 
 def define_discriminator(in_shape: Tuple[int, int, int, int] = (64, 64, 4, 1)
 ) -> keras.engine.functional.Functional:
-    """Constructs the discriminator in the GAN. Uses a combination of dense
-    and convolutional layers.
-
-    Args:
-      in_shape: The shape of the input keras tensor. 
-
-    Returns:
-      The discriminator model.
-    """
  
     tens_in = Input(shape=in_shape, name="input")
  
@@ -95,18 +104,9 @@ def define_discriminator(in_shape: Tuple[int, int, int, int] = (64, 64, 4, 1)
     model.compile(loss = 'binary_crossentropy', optimizer = opt,metrics = ['accuracy'])
 
     return model
- 
+#Forming discriminator using dense and convolutional layers 
  
 def define_generator(latent_dim: int) -> keras.engine.functional.Functional:
-    """Constructs the generator in the GAN. Uses a combination of dense
-    and transposed convolutional layers.
-
-    Args:
-      latend_dim: The dimension of latent space. 
-
-    Returns:
-      The generator model.
-    """
     n_nodes = 16 * 16 * 4
  
     noise_in = Input(shape=(latent_dim, ), name="noise_input")
@@ -154,21 +154,13 @@ def define_generator(latent_dim: int) -> keras.engine.functional.Functional:
  
     model = Model(inputs=noise_in, outputs=outMat)
     return model
+#Forming the discriminator using dense and transposed convolutional layers
 
 def define_gan(generator: keras.engine.functional.Functional, 
                discriminator: keras.engine.functional.Functional
                ) -> keras.engine.functional.Functional:
-    
-    """Constructs the GAN. Freezes the discriminator weights to train generator.
-
-    Args:
-      generator: The generator model.
-      discriminator: The discriminator model.
-    
-    Returns:
-      The GAN model.
-    """
     discriminator.trainable = False
+#Freezing discriminator weights
     model = Sequential()
     
     model.add(generator)
@@ -177,85 +169,45 @@ def define_gan(generator: keras.engine.functional.Functional,
     opt = Adam(learning_rate = 1e-5)
     model.compile(loss = 'binary_crossentropy', optimizer = opt)
     return model
+#Creating finished model
+#Compiling optimizer (Adam, SGD varinant) and loss function (binary cross-entropy)
 
 def load_real_samples(data_path: str) -> np.ndarray:
-    """ Loads in the tensor of real samples.
-
-      Args:
-        data_path: Path to the dataset.
-      Returns:
-        Tensor of real samples. Shape = (num_samples, 64, 64, 4).
-    """
     data_tensor = np.load(data_path)
     return np.reshape(data_tensor, (data_tensor.shape[0], 64, 64, 4))
+#Loads in the tensor of real samples, which have the shape (num_samples, 64, 64, 4)
 
 def generate_real_samples(dataset: np.ndarray, n_samples: int
                           ) -> Tuple[np.ndarray, np.ndarray]:
-    """Randomly selects a number of samples from the real dataset.
-
-    Args:
-      dataset: The dataset of real samples.
-      n_samples: The number of samples requested.
-
-    Returns:
-      The randomly selected samples from the dataset and a vector of ones
-      to indicate that the samples are "real."
-    """
     ix = random.randint(0,dataset.shape[0],n_samples)
     X = dataset[ix]
-    y = np.ones((n_samples,1))
+
+y = np.ones((n_samples,1))
     return X,y
-    
+#Selects random values and indicates that they're true (they're from the dataset as opposed to the generator)
+
 def generate_latent_points(latent_dim: int, n_samples:int) -> np.ndarray:
-    """Generates a random array to be used by the generator.
-
-    Args:
-      latent_dim: The dimension of the latent space.
-      n_samples: The number of samples requested.
-
-    Returns:
-      An array of random latent variables. Shape = (n_samples, latent_dim).
-    """
     x_input = random.randn(latent_dim*n_samples)
     x_input = x_input.reshape(n_samples,latent_dim)
     return x_input
- 
+#Random array to be used
+
 def generate_fake_samples(generator: keras.engine.functional.Functional, 
                           latent_dim: int, n_samples: int
                           ) -> Tuple[np.ndarray, np.ndarray]:
-    """Generates fake samples from the generator.
-
-    Args:
-      generator: The generator model.
-      latent_dim: The dimension of latent space.
-      n_samples: The number of samples requested.
-
-    Returns:
-      The generated samples and a vector of zeros to indicate that the samples
-      are "fake."
-    """
     x_input = generate_latent_points(latent_dim,n_samples)
     X = generator.predict(x_input)
-    y = np.zeros((n_samples,1))
+    y = np.zeros((n_samples,0))
     return X,y
+#Generates fake examples for the generator
 
 def train(g_model: keras.engine.functional.Functional,
           d_model: keras.engine.functional.Functional,
           gan_model: keras.engine.functional.Functional,
           dataset: np.ndarray, latent_dim: int, save_path: str,
           n_epochs: int = 100, n_batch: int = 64) -> None:
-    """Trains the GAN model.
+#Trains the GAN over 100 epochs, each containing 64 examples
 
-    Args:
-      g_model: The generator model.
-      d_model: The discriminator model.
-      gan_model: The GAN model.
-      dataset: The dataset of real samples.
-      latent_dim: The dimension of the latent space.
-      n_epochs: The number of epochs to train for.
-      n_batch: The batch size.
-      save_path
-    """
     bat_per_epoch = int(dataset.shape[0]/n_batch)
     d_loss_real_list = []
     d_loss_fake_list = []
@@ -279,6 +231,7 @@ def train(g_model: keras.engine.functional.Functional,
         np.savetxt(os.path.join(save_path, 'd_loss_real_list'),d_loss_real_list)
         np.savetxt(os.path.join(save_path, 'd_loss_fake_list'),d_loss_fake_list)
         np.savetxt(os.path.join(save_path, 'g_loss_list'),g_loss_list)
+#Compiling GAN model, specifying losses so model can perform backprop
 
 def main():
     args = parser.parse_args()
@@ -288,6 +241,7 @@ def main():
     gan_model = define_gan(generator,discriminator)
     dataset = load_real_samples(args.data_path)
     train(generator, discriminator, gan_model,dataset, latent_dim, args.save_path)
+#Putting the layers together
 
 if __name__ == "__main__":
     main()
