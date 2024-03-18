@@ -32,19 +32,7 @@ def conv_norm(x: keras.engine.keras_tensor.KerasTensor, units: int,
 #If transposed convolution, ReLU
 
 def dense_norm(x: keras.engine.keras_tensor.KerasTensor, units: int, 
-               discriminator: bool) -> keras.engine.keras_tensor.KerasTensor:
-  """Applies a dense layer, normalization, and an activation function.
-
-  Args:
-    x: The previous keras tensor passed into the dense/normalization layer
-    units: The number of units in the dense layer
-    discriminator: Whether dense_norm is present in the discriminator. If true,
-    the activation function will be LeakyReLU instead of ReLU. 
-
-  Returns:
-    The keras tensor after the dense layer, normalization, and activation 
-    function.
-  """
+               discriminator: bool) -> keras.engine.keras_tensor.KerasTensor:n.
   if discriminator:
     activation_function = LeakyReLU(alpha = 0.2)
   else:
@@ -53,6 +41,9 @@ def dense_norm(x: keras.engine.keras_tensor.KerasTensor, units: int,
   x = BatchNormalization()(x)
   x = activation_function(x)
   return x
+#If dense_norm is present in the discriminator, the activation function will be Leaky ReLU
+#If dense_norm isn't present int he discriminator, the activation function will be ReLU
+#Returns keras tensor following layers 
 
 def define_discriminator(in_shape: Tuple[int, int, int, int] = (64, 64, 4, 1)
 ) -> keras.engine.functional.Functional:
