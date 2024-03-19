@@ -170,12 +170,12 @@ def define_gan(generator: keras.engine.functional.Functional,
     model.compile(loss = 'binary_crossentropy', optimizer = opt)
     return model
 #Creating finished model
-#Compiling optimizer (Adam, SGD varinant) and loss function (binary cross-entropy)
+#Compiling optimizer (Adam, SGD variant) and loss function (binary cross-entropy)
 
 def load_real_samples(data_path: str) -> np.ndarray:
     data_tensor = np.load(data_path)
     return np.reshape(data_tensor, (data_tensor.shape[0], 64, 64, 4))
-#Loads in the tensor of real samples, which have the shape (num_samples, 64, 64, 4)
+#Loads in the tensor of real samples, which have the shape (x, 64, 64, 4)
 
 def generate_real_samples(dataset: np.ndarray, n_samples: int
                           ) -> Tuple[np.ndarray, np.ndarray]:
@@ -231,7 +231,7 @@ def train(g_model: keras.engine.functional.Functional,
         np.savetxt(os.path.join(save_path, 'd_loss_real_list'),d_loss_real_list)
         np.savetxt(os.path.join(save_path, 'd_loss_fake_list'),d_loss_fake_list)
         np.savetxt(os.path.join(save_path, 'g_loss_list'),g_loss_list)
-#Compiling GAN model, specifying losses so model can perform backprop
+#Compiling GAN model, specifying losses so model can perform backprop accordingly
 
 def main():
     args = parser.parse_args()
@@ -241,7 +241,7 @@ def main():
     gan_model = define_gan(generator,discriminator)
     dataset = load_real_samples(args.data_path)
     train(generator, discriminator, gan_model,dataset, latent_dim, args.save_path)
-#Putting the layers together
+#Putting the layers together, constructing final GAN
 
 if __name__ == "__main__":
     main()
