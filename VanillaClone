@@ -54,17 +54,16 @@ def dense_norm(x: keras.engine.keras_tensor.KerasTensor, units: int,
 #If dense_norm is present in discriminator, LeakyReLU
 #If dense_norm is not present, ReLU
 
-def define_discriminator(in_shape: Tuple[int, int, int, int] = (64, 64, 4, 1)
+def define_discriminator(in_shape: Tuple[int, int, int, int] = (64, 64, 4, 1) #Standard input shape
 ) -> keras.engine.functional.Functional:
- 
     tens_in = Input(shape=in_shape, name="input")
- 
+#Input tensor, real image; not a noise tensor
     y = Flatten()(tens_in)
     y = dense_norm(y, 1024, True) 
     y = dense_norm(y, 1024, True)
     y = dense_norm(y, 1024, True)
     y = dense_norm(y, 1024, True)
-
+#Layering dense layers, each with 1024 neurons
     x = conv_norm(tens_in, 32, (1,1,1), (1,1,1), True)
     x = conv_norm(x, 32, (3,3,1), (1,1,1), True)  
     x = conv_norm(x, 32, (3,3,1), (1,1,1), True)  
@@ -74,37 +73,33 @@ def define_discriminator(in_shape: Tuple[int, int, int, int] = (64, 64, 4, 1)
     x = conv_norm(x, 64, (7,7,1), (1,1,1), True)
     x = conv_norm(x, 64, (7,7,1), (1,1,1), True)
     x = conv_norm(x, 64, (7,7,1), (1,1,1), True)
-
+#Applying convolutions to input tensor
+#True, because the convolutional layers are defined for the discriminator, not generator
     z = Reshape((32, 32, 1, 1))(y)
     x = z + x
-
+#Reshaping y into a 4-D tensor
     y = dense_norm(y, 9, True) 
- 
     x = conv_norm(x, 128, (5,5,2), (5,5,1), True)
-    x = conv_norm(x, 256, (2,2,2), (2,2,2), True)  
- 
+    x = conv_norm(x, 256, (2,2,2), (2,2,2), True)
+#Layering with a dense layer and two convolutional layers
     z = Reshape((3, 3, 1, 1))(y)
     x = z + x
- 
     x = Flatten()(x)
     x = Dropout(0.25)(x)
- 
+ #Flattening and adding dropout layer
     disc_out = Dense(1, activation = "sigmoid")(x)
+#Sigmoid activation
     model = Model(inputs=tens_in, outputs=disc_out)
     opt = Adam(learning_rate = 1e-5)
     model.compile(loss = 'binary_crossentropy', optimizer = opt,metrics = ['accuracy'])
-
     return model
-#Forming discriminator using dense and convolutional layers 
  
 def define_generator(latent_dim: int) -> keras.engine.functional.Functional:
     n_nodes = 16 * 16 * 4
- 
     noise_in = Input(shape=(latent_dim, ), name="noise_input")
-
+#Latent_dim = noise vector
     y = dense_norm(noise_in, 484, False)
     y = dense_norm(y, 484, False)
-    
     x = dense_norm(noise_in, n_nodes, False)
     x = Reshape((16,16, 4, 1))(x)
     x = conv_norm(x, 256, (3,3,3), (1,1,1), False)
@@ -152,6 +147,8 @@ def define_gan(generator: keras.engine.functional.Functional,
                ) -> keras.engine.functional.Functional:
     discriminator.trainable = False
 #Freezing discriminator weights
+#Discriminator and generator have different loss functions
+#Freezing weights ensures the GAN will be powerful because the generator is strong, not because the discriminator is weak
     model = Sequential()
     
     model.add(generator)
