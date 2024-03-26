@@ -38,6 +38,9 @@ def conv_norm(x: keras.engine.keras_tensor.KerasTensor, units: int,
 #If convolution, LeakyReLU
 #If transposed convolution, ReLU
 #Returns keras tensor following convolution, normalization, and activation function
+#Traditional convolution finds the sum of the dot products, and sets that as output
+#For transposed convolutions, input values, which determine the kernel, decide the output
+#Spreads out pixels
 
 def dense_norm(x: keras.engine.keras_tensor.KerasTensor, units: int, 
                discriminator: bool) -> keras.engine.keras_tensor.KerasTensor:
@@ -50,13 +53,13 @@ def dense_norm(x: keras.engine.keras_tensor.KerasTensor, units: int,
   x = activation_function(x)
   return x
 #Applying a dense layer, normalization, and an activation function
-#If dense_norm is present in discriminator, LeakyReLU
+#Similar to convolutional layer, if dense_norm is present in discriminator, LeakyReLU
 #If dense_norm is not present, ReLU
 
 def define_discriminator(in_shape: Tuple[int, int, int, int] = (64, 64, 4, 1) #Standard input shape
 ) -> keras.engine.functional.Functional:
     tens_in = Input(shape=in_shape, name="input")
-#Input tensor, real image; not a noise tensor
+#Input tensor, real image; not a noise vector
     y = Flatten()(tens_in)
     y = dense_norm(y, 1024, True) 
     y = dense_norm(y, 1024, True)
@@ -74,7 +77,6 @@ def define_discriminator(in_shape: Tuple[int, int, int, int] = (64, 64, 4, 1) #S
     x = conv_norm(x, 64, (7,7,1), (1,1,1), True)
 #64 = number of filters, size of filter, stride, 
 #True, because the convolutional layers are defined for the discriminator, not generator
-#Applying convolutions to input tensor
     z = Reshape((32, 32, 1, 1))(y)
     x = z + x
 #Reshaping y into a 4-D tensor
