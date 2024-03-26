@@ -158,7 +158,7 @@ def define_gan(generator: keras.engine.functional.Functional,
     model.compile(loss = 'binary_crossentropy', optimizer = opt)
     return model
 #Creating finished model
-#Compiling optimizer (Adam, SGD variant) and loss function (binary cross-entropy)
+#Compiling optimizer (Adam, SGD variant that combines Momentum and RMS-Prop) and loss function (binary cross-entropy)
 
 def load_real_samples(data_path: str) -> np.ndarray:
     data_tensor = np.load(data_path)
@@ -169,7 +169,6 @@ def generate_real_samples(dataset: np.ndarray, n_samples: int
                           ) -> Tuple[np.ndarray, np.ndarray]:
     ix = random.randint(0,dataset.shape[0],n_samples)
     X = dataset[ix]
-
 y = np.ones((n_samples,1))
     return X,y
 #Selects random values and indicates that they're true (they're from the dataset as opposed to the generator)
@@ -178,7 +177,7 @@ def generate_latent_points(latent_dim: int, n_samples:int) -> np.ndarray:
     x_input = random.randn(latent_dim*n_samples)
     x_input = x_input.reshape(n_samples,latent_dim)
     return x_input
-#Random array to be used
+#Random array to be used to training the generator
 
 def generate_fake_samples(generator: keras.engine.functional.Functional, 
                           latent_dim: int, n_samples: int
