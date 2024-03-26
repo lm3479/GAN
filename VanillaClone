@@ -22,7 +22,6 @@ def conv_norm(x: keras.engine.keras_tensor.KerasTensor, units: int,
 #Units = number of kernels
 #Filter: tuple of three to define kernel size
 #Stride: tuple of how kernel will move
-#
   if discriminator:
     activation_function = LeakyReLU(alpha = 0.2)
     #Implementing LeakyReLU to avoid vanishing gradient/dying ReLU
@@ -73,8 +72,9 @@ def define_discriminator(in_shape: Tuple[int, int, int, int] = (64, 64, 4, 1) #S
     x = conv_norm(x, 64, (7,7,1), (1,1,1), True)
     x = conv_norm(x, 64, (7,7,1), (1,1,1), True)
     x = conv_norm(x, 64, (7,7,1), (1,1,1), True)
-#Applying convolutions to input tensor
+#64 = number of filters, size of filter, stride, 
 #True, because the convolutional layers are defined for the discriminator, not generator
+#Applying convolutions to input tensor
     z = Reshape((32, 32, 1, 1))(y)
     x = z + x
 #Reshaping y into a 4-D tensor
@@ -86,15 +86,16 @@ def define_discriminator(in_shape: Tuple[int, int, int, int] = (64, 64, 4, 1) #S
     x = z + x
     x = Flatten()(x)
     x = Dropout(0.25)(x)
- #Flattening and adding dropout layer
+ #Reshaping, flattening, and adding dropout layer
     disc_out = Dense(1, activation = "sigmoid")(x)
 #Sigmoid activation
     model = Model(inputs=tens_in, outputs=disc_out)
     opt = Adam(learning_rate = 1e-5)
     model.compile(loss = 'binary_crossentropy', optimizer = opt,metrics = ['accuracy'])
     return model
- 
-def define_generator(latent_dim: int) -> keras.engine.functional.Functional:
+#Adam optimizer with a small learning rate to prevnt overfitting
+
+def define_generator(latent_dim:```````` int) -> keras.engine.functional.Functional:
     n_nodes = 16 * 16 * 4
     noise_in = Input(shape=(latent_dim, ), name="noise_input")
 #Latent_dim = noise vector
@@ -105,39 +106,27 @@ def define_generator(latent_dim: int) -> keras.engine.functional.Functional:
     x = conv_norm(x, 256, (3,3,3), (1,1,1), False)
     x = conv_norm(x, 128, (3,3,3), (1,1,1), False)
     x = conv_norm(x, 128, (3,3,3), (1,1,1), False)
- 
     z = Reshape((22, 22, 1, 1))(y)
     x = z + x
-
     y = dense_norm(y, 784, False)
     y = dense_norm(y, 784, False)
     y = dense_norm(y, 784, False)
- 
     x = conv_norm(x, 128, (3,3,3), (1,1,1), False)
     x = conv_norm(x, 64, (3,3,3), (1,1,1), False) 
     x = conv_norm(x, 64, (3,3,3), (1,1,1), False) 
- 
     z = Reshape((28, 28, 1, 1))(y)
     x = z + x
-
     y = dense_norm(y, 1024, False)
     y = dense_norm(y, 1024, False)
- 
     x = conv_norm(x, 64, (3,3,3), (1,1,1), False) 
     x = conv_norm(x, 64, (3,3,3), (1,1,1), False) 
- 
     z = Reshape((32, 32, 1, 1))(y)
     x = z + x
-
     y = dense_norm(y, 4096, False)
- 
     x = conv_norm(x, 32, (2,2,2), (2,2,2), False)   
- 
     z = Reshape((64, 64, 1, 1))(y)
     x = z + x
- 
     outMat = Conv3D(1,(1,1,10), activation = 'sigmoid', strides = (1,1,10), padding = 'valid')(x)
- 
     model = Model(inputs=noise_in, outputs=outMat)
     return model
 #Forming the discriminator using dense and transposed convolutional layers
