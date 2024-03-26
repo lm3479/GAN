@@ -13,17 +13,22 @@ from tensorflow.keras.layers import Flatten, LeakyReLU, ReLU, BatchNormalization
 parser = argparse.ArgumentParser()
 parser.add_argument("--data_path", type=str, help="Path to where the dataset is stored.")
 parser.add_argument("--save_path", type=str, help="Path to where the models and loss history is stored.")
+#When running this script from the command lind, argparse allows users to specify paths to directories
 
 def conv_norm(x: keras.engine.keras_tensor.KerasTensor, units: int, 
               filter: Tuple[int, int, int], stride : Tuple[int, int, int], 
               discriminator: bool = True
               ) -> keras.engine.keras_tensor.KerasTensor:
+#Units = number of kernels
+#Filter: tuple of three to define kernel size
+#Stride: tuple of how kernel will move
+#
   if discriminator:
     activation_function = LeakyReLU(alpha = 0.2)
     #Implementing LeakyReLU to avoid vanishing gradient/dying ReLU
     #For negative numbers, LeakyReLU outputs a small negative value proportionate to input instead of zero
     conv = Conv3D(units, filter, strides = stride, padding = 'valid')
-  else:
+  else: #In the case of the generator
     activation_function = ReLU()
     conv = Conv3DTranspose(units, filter, strides = stride, padding = 'valid')
   x = conv(x)
