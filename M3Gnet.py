@@ -143,19 +143,90 @@ def define_generator(latent_dim: int) -> keras.engine.functional.Functional:
  
     z = Reshape((64, 64, 1, 1))(y)
     x = z + x
- 
     outMat = Conv3D(1,(1,1,10), activation = 'sigmoid', strides = (1,1,10), padding = 'valid')(x)
- 
     model = Model(inputs=noise_in, outputs=outMat)
-    def filter_unrealistic_structures(generated_structure, m3gnet_model, ehull_threshold=0.1):
+    m3gnet_model = M3GNET.from_dir(args.m3gnet_model_path)
+    def filter_unrealistic_structures(m3gnet_model, ehull_threshold=0.1):
       if e_above_hull <= ehull_threshold:  
-          diffuser_input = prepare_for_diffuser(generated_structure)  # Adapt if needed
-          diffused_output = diffuser(diffuser_input)  # Assuming you have a 'diffuser' function
-  
+         return True
       else:
-  
-          # Option 1: Discard (simplest)
           print("Unrealistic structure discarded: High energy above hull.")
         return False 
       return model
-#Forming the discriminator using dense and transposed convolutional layers
+  
+def define_gan(generator: keras.engine.functional.Functional, 
+               discriminator: keras.engine.functional.Functional
+               ) -> keras.engine.functional.Functional:
+    discriminator.trainable = False
+#Freezing discriminator weights
+    model = Sequential()
+    
+    model.add(generator)
+    model.add(discriminator)
+    
+    opt = Adam(learning_rate = 1e-5)
+    model.compile(loss = 'binary_crossentropy', optimizer = opt)
+    return model
+#Creating finished model
+#Compiling optimizer (Adam, SGD variant) and loss function (binary cross-entropy)
+
+def load_real_samples(data_path: str) -> np.ndarray:
+    data_tensor = np.load(data_path)
+    return np.reshape(data_tensor, (data_tensor.shape[0], 64, 64, 4))
+#Loads in the tensor of real samples, which have the shape (x, 64, 64, 4)
+
+                          ) -> Tuple[np.ndarray, np.ndarray]:
+    ix = random.randint(0,dataset.shape[0],n_samples)
+    X = dataset[ix]
+
+y = np.ones((n_samples,1))
+    return X,y
+#Selects random values and indicates that they're true (they're from the dataset as opposed to the generator)
+
+def generate_latent_points(latent_dim: int, n_samples:int) -> np.ndarray:
+    x_input = random.randn(latent_dim*n_samples)
+    x_input = x_input.reshape(n_samples,latent_dim)
+    return x_input
+#Random array to be used
+
+def generate_fake_samples(generator: keras.engine.functional.Functional, 
+                          latent_dim: int, n_samples: int
+                          ) -> Tuple[np.ndarray, np.ndarray]:
+    x_input = generate_latent_points(latent_dim,n_samples)
+    X = generator.predict(x_input)
+    y = np.zeros((n_samples,0))
+    return X,y
+#Generates fake examples for the generator
+
+def train(g_model: keras.engine.functional.Functional,
+          d_model: keras.engine.functional.Functional,
+          gan_model: keras.engine.functional.Functional,
+          dataset: np.ndarray, latent_dim: int, save_path: str,
+          n_epochs: int = 100, n_batch: int = 64) -> None:
+#Trains the GAN over 100 epochs, each containing 64 examples
+
+    bat_per_epoch = int(dataset.shape[0]/n_batch)
+    d_loss_real_list = []
+    d_loss_fake_list = []
+    g_loss_list = []
+    for i in range(n_epochs):
+        for j in range(bat_per_epoch//2):
+            X_real,y_real = generate_real_samples(dataset, n_batch)
+            d_loss_real,_ = d_model.train_on_batch(X_real, y_real)
+            X_fake,y_fake = generate_fake_samples(g_model, latent_dim, n_batch)
+            d_loss_fake,_ = d_model.train_on_batch(X_fake, y_fake)
+            X_gan = generate_latent_points(latent_dim, n_batch)
+            y_gan = np.ones((n_batch,1))
+            g_loss = gan_model.train_on_batch(X_gan,y_gan)
+        
+        d_loss_real_list.append(d_loss_real)
+        d_loss_fake_list.append(d_loss_fake)
+        g_loss_list.append(g_loss)
+
+        g_model.save(os.path.join(save_path, 'generator'))
+        d_model.save(os.path.join(save_path, 'discriminator'))
+        np.savetxt(os.path.join(save_path, 'd_loss_real_list'),d_loss_real_list)
+        np.savetxt(os.path.join(save_path, 'd_loss_fake_list'),d_loss_fake_list)
+        np.savetxt(os.path.join(save_path, 'g_loss_list'),g_loss_list)
+#Compiling GAN model, specifying losses so model can perform backprop accordingly
+
