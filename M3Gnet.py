@@ -228,5 +228,4 @@ def train(g_model: keras.engine.functional.Functional,
         np.savetxt(os.path.join(save_path, 'd_loss_real_list'),d_loss_real_list)
         np.savetxt(os.path.join(save_path, 'd_loss_fake_list'),d_loss_fake_list)
         np.savetxt(os.path.join(save_path, 'g_loss_list'),g_loss_list)
-#Compiling GAN model, specifying losses so model can perform backprop accordingly
-
+#Compiling GAN model, specifying losses so model can perform backprop accordingl
