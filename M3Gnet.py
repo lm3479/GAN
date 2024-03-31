@@ -41,7 +41,7 @@ def conv_norm(x: keras.engine.keras_tensor.KerasTensor, units: int,
 #Convolutional layer
 #If convolution, LeakyReLU
 #If transposed convolution, ReLU
-#Returns keras tensor following convolution, normalization, and activation function
+#Returns keras tensor following convolution, batchnorm, and activation function
 
 def dense_norm(x: keras.engine.keras_tensor.KerasTensor, units: int, 
                discriminator: bool) -> keras.engine.keras_tensor.KerasTensor:
@@ -60,15 +60,12 @@ def dense_norm(x: keras.engine.keras_tensor.KerasTensor, units: int,
 
 def define_discriminator(in_shape: Tuple[int, int, int, int] = (64, 64, 4, 1)
 ) -> keras.engine.functional.Functional:
- 
     tens_in = Input(shape=in_shape, name="input")
- 
     y = Flatten()(tens_in)
     y = dense_norm(y, 1024, True) 
     y = dense_norm(y, 1024, True)
     y = dense_norm(y, 1024, True)
     y = dense_norm(y, 1024, True)
-
     x = conv_norm(tens_in, 32, (1,1,1), (1,1,1), True)
     x = conv_norm(x, 32, (3,3,1), (1,1,1), True)  
     x = conv_norm(x, 32, (3,3,1), (1,1,1), True)  
@@ -78,21 +75,15 @@ def define_discriminator(in_shape: Tuple[int, int, int, int] = (64, 64, 4, 1)
     x = conv_norm(x, 64, (7,7,1), (1,1,1), True)
     x = conv_norm(x, 64, (7,7,1), (1,1,1), True)
     x = conv_norm(x, 64, (7,7,1), (1,1,1), True)
-
     z = Reshape((32, 32, 1, 1))(y)
     x = z + x
-
     y = dense_norm(y, 9, True) 
- 
     x = conv_norm(x, 128, (5,5,2), (5,5,1), True)
     x = conv_norm(x, 256, (2,2,2), (2,2,2), True)  
- 
     z = Reshape((3, 3, 1, 1))(y)
     x = z + x
- 
     x = Flatten()(x)
     x = Dropout(0.25)(x)
- 
     disc_out = Dense(1, activation = "sigmoid")(x)
     model = Model(inputs=tens_in, outputs=disc_out)
     opt = Adam(learning_rate = 1e-5)
@@ -102,50 +93,76 @@ def define_discriminator(in_shape: Tuple[int, int, int, int] = (64, 64, 4, 1)
 
 def define_generator(latent_dim: int) -> keras.engine.functional.Functional:
     n_nodes = 16 * 16 * 4
- 
     noise_in = Input(shape=(latent_dim, ), name="noise_input")
-
     y = dense_norm(noise_in, 484, False)
     y = dense_norm(y, 484, False)
-    
     x = dense_norm(noise_in, n_nodes, False)
     x = Reshape((16,16, 4, 1))(x)
     x = conv_norm(x, 256, (3,3,3), (1,1,1), False)
     x = conv_norm(x, 128, (3,3,3), (1,1,1), False)
     x = conv_norm(x, 128, (3,3,3), (1,1,1), False)
- 
     z = Reshape((22, 22, 1, 1))(y)
     x = z + x
-
     y = dense_norm(y, 784, False)
     y = dense_norm(y, 784, False)
     y = dense_norm(y, 784, False)
- 
     x = conv_norm(x, 128, (3,3,3), (1,1,1), False)
     x = conv_norm(x, 64, (3,3,3), (1,1,1), False) 
     x = conv_norm(x, 64, (3,3,3), (1,1,1), False) 
- 
     z = Reshape((28, 28, 1, 1))(y)
     x = z + x
-
     y = dense_norm(y, 1024, False)
     y = dense_norm(y, 1024, False)
- 
     x = conv_norm(x, 64, (3,3,3), (1,1,1), False) 
     x = conv_norm(x, 64, (3,3,3), (1,1,1), False) 
- 
     z = Reshape((32, 32, 1, 1))(y)
     x = z + x
-
     y = dense_norm(y, 4096, False)
- 
     x = conv_norm(x, 32, (2,2,2), (2,2,2), False)   
- 
     z = Reshape((64, 64, 1, 1))(y)
     x = z + x
     outMat = Conv3D(1,(1,1,10), activation = 'sigmoid', strides = (1,1,10), padding = 'valid')(x)
     model = Model(inputs=noise_in, outputs=outMat)
-    m3gnet_model = M3GNET.from_dir(args.m3gnet_model_path)
+    def predict_ehull(dir, model_path, output_path, api_key):
+      m3gnet_e_form = M3GNet.from_dir(model_path)
+      ehull_list = []
+      for file_name in os.listdir(dir):
+          crystal = Structure.from_file(dir + file_name, sort = True, merge_tol=0.01)
+          try:
+              e_form_predict = m3gnet_e_form.predict_structure(crystal)
+          except:
+              print("Could not predict formation energy of ", crystal)
+              ehull_list.append((file_name, "N/A"))
+              break
+          elements = ''.join([i for i in crystal.formula if not i.isdigit()]).split(" ")
+          mat_api_key = api_key
+          mpr = MPRester(mat_api_key)
+  #Extracts information about crystals, and additional compounds
+          all_compounds = mpr.summary.search(elements = elements)
+          insert_list = []
+        for compound in all_compounds:
+              for element in ''.join([i for i in str(compound.composition) if not i.isdigit()]).split(" "):
+                  if element not in elements and element not in insert_list:
+                      insert_list.append(element)
+          for element in elements + insert_list:
+              all_compounds += mpr.summary.search(elements = [element], num_elements = (1,1))
+  
+          pde_list = []
+          for i in range(len(all_compounds)):
+              comp = str(all_compounds[i].composition.reduced_composition).replace(" ", "")
+              pde_list.append(ComputedEntry(comp, all_compounds[i].formation_energy_per_atom))
+      
+          try:
+              diagram = PhaseDiagram(pde_list)
+              _, pmg_ehull = diagram.get_decomp_and_e_above_hull(ComputedEntry(Composition(crystal.formula.replace(" ", "")), e_form_predict[0][0].numpy()))
+              ehull_list.append((file_name, pmg_ehull))
+          except:
+              print("Could not create phase diagram")
+              ehull_list.append((file_name, "N/A"))
+              continue
+      np.save(output_path, np.array(ehull_list))
+  #Predicting distance above convex hull: anything on convex hull is considered stable
+      m3gnet_model = M3GNET.from_dir(args.m3gnet_model_path)
     def filter_unrealistic_structures(m3gnet_model, ehull_threshold=0.1):
       if e_above_hull <= ehull_threshold:  
          return True
@@ -229,3 +246,17 @@ def train(g_model: keras.engine.functional.Functional,
         np.savetxt(os.path.join(save_path, 'd_loss_fake_list'),d_loss_fake_list)
         np.savetxt(os.path.join(save_path, 'g_loss_list'),g_loss_list)
 #Compiling GAN model, specifying losses so model can perform backprop accordingl
+
+def main():
+    args = parser.parse_args()
+    predict_ehull(args.dir, args.m3gnet_model_path, args.ehull_path, args.mp_api_key)
+    latent_dim = 128
+    discriminator = define_discriminator()
+    generator = define_generator(latent_dim)
+    gan_model = define_gan(generator,discriminator)
+    dataset = load_real_samples(args.data_path)
+    train(generator, discriminator, gan_model,dataset, latent_dim, args.save_path)
+#Putting the layers together, constructing final GAN
+
+if __name__ == "__main__":
+    main()
