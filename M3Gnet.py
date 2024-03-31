@@ -164,7 +164,7 @@ def define_generator(latent_dim: int) -> keras.engine.functional.Functional:
   #Predicting distance above convex hull: anything on convex hull is considered stable
       m3gnet_model = M3GNET.from_dir(args.m3gnet_model_path)
     def filter_unrealistic_structures(m3gnet_model, ehull_threshold=0.1):
-      if e_above_hull <= ehull_threshold:  
+      if pmg_ehull <= ehull_threshold:  
          return True
       else:
           print("Unrealistic structure discarded: High energy above hull.")
