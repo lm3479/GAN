@@ -42,8 +42,8 @@ def conv_norm(x: keras.engine.keras_tensor.KerasTensor, units: int,
   x = activation_function(x) 
   return x
 #Convolutional layer
-#If convolution, LeakyReLU
-#If transposed convolution, ReLU
+#Discriminator -> convolution -> LeakyReLU
+#Generator -> transposed convolution -> ReLU
 #Returns keras tensor following convolution, batchnorm, and activation function
 
 def dense_norm(x: keras.engine.keras_tensor.KerasTensor, units: int, 
