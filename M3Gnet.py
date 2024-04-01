@@ -58,8 +58,8 @@ def dense_norm(x: keras.engine.keras_tensor.KerasTensor, units: int,
   return x
 #Dense layer
 #Applying a dense layer, normalization, and an activation function
-#If dense_norm is present in discriminator, LeakyReLU
-#If dense_norm is not present, ReLU
+#Discriminator -> LeakyReLU
+#Generator -> ReLU
 
 def define_discriminator(in_shape: Tuple[int, int, int, int] = (64, 64, 4, 1)
 ) -> keras.engine.functional.Functional:
@@ -170,7 +170,7 @@ def define_generator(latent_dim: int) -> keras.engine.functional.Functional:
       if pmg_ehull <= ehull_threshold:  
          return True
       else:
-          print("Unrealistic structure discarded: High energy above hull.")
+          print("Unrealistic structure discarded: high energy above hull.")
         return False 
       return model
   
