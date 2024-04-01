@@ -28,6 +28,9 @@ def conv_norm(x: keras.engine.keras_tensor.KerasTensor, units: int,
               filter: Tuple[int, int, int], stride : Tuple[int, int, int], 
               discriminator: bool = True
               ) -> keras.engine.keras_tensor.KerasTensor:
+              #Units = number of kernels
+              #Filter: tuple of three to define kernel size
+              #Stride: tuple of how kernel will move
   if discriminator:
     activation_function = LeakyReLU(alpha = 0.2)
     conv = Conv3D(units, filter, strides = stride, padding = 'valid')
