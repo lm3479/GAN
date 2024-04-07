@@ -172,8 +172,7 @@ def define_generator(latent_dim: int) -> keras.engine.functional.Functional:
          stable_ehulls.append(pmg_ehull)
       else:
           print("Unrealistic structure discarded: high energy above hull.")
-        return False 
-    return stable_ehulls
+        return False
   
 def define_gan(generator: keras.engine.functional.Functional, 
                discriminator: keras.engine.functional.Functional
