@@ -224,7 +224,6 @@ def train(g_model: keras.engine.functional.Functional,
           dataset: np.ndarray, latent_dim: int, save_path: str,
           n_epochs: int = 100, n_batch: int = 64) -> None:
 #Trains the GAN over 100 epochs, each containing 64 examples
-
     bat_per_epoch = int(dataset.shape[0]/n_batch)
     d_loss_real_list = []
     d_loss_fake_list = []
@@ -234,6 +233,11 @@ def train(g_model: keras.engine.functional.Functional,
             X_real,y_real = generate_real_samples(dataset, n_batch)
             d_loss_real,_ = d_model.train_on_batch(X_real, y_real)
             X_fake,y_fake = generate_fake_samples(g_model, latent_dim, n_batch)
+            X_fake_filtered = []
+            X_fake_filtered.append(pmg_ehull) #List that contain stable e_hulls
+            X_fake_filtered = np.array(X_fake_filtered)
+            y_fake_filtered = np.zeros((len(X_fake_filtered), 1))
+            d_loss_fake, _ = d_model.train_on_batch(X_fake_filtered, y_fake_filtered)
             d_loss_fake,_ = d_model.train_on_batch(X_fake, y_fake)
             X_gan = generate_latent_points(latent_dim, n_batch)
             y_gan = np.ones((n_batch,1))
@@ -248,7 +252,7 @@ def train(g_model: keras.engine.functional.Functional,
         np.savetxt(os.path.join(save_path, 'd_loss_real_list'),d_loss_real_list)
         np.savetxt(os.path.join(save_path, 'd_loss_fake_list'),d_loss_fake_list)
         np.savetxt(os.path.join(save_path, 'g_loss_list'),g_loss_list)
-#Compiling GAN model, specifying losses so model can perform backprop accordingl
+#Compiling GAN model, specifying losses so model can perform backprop accordingly
 
 def main():
     args = parser.parse_args()
