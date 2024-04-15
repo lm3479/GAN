@@ -126,35 +126,33 @@ def define_generator(latent_dim: int) -> keras.engine.functional.Functional:
     x = z + x
     outMat = Conv3D(1,(1,1,10), activation = 'sigmoid', strides = (1,1,10), padding = 'valid')(x)
     model = Model(inputs=noise_in, outputs=outMat)
-    def predict_ehull(dir, model_path, output_path, api_key):
-      m3gnet_e_form = M3GNet.from_dir(model_path)
-      ehull_list = []
-      for file_name in os.listdir(dir):
-          crystal = Structure.from_file(dir + file_name, sort = True, merge_tol=0.01)
-          try:
-              e_form_predict = m3gnet_e_form.predict_structure(crystal)
-          except:
-              print("Could not predict formation energy of ", crystal)
-              ehull_list.append((file_name, "N/A"))
-              break
-          elements = ''.join([i for i in crystal.formula if not i.isdigit()]).split(" ")
-          mat_api_key = api_key
-          mpr = MPRester(mat_api_key)
+def predict_ehull(dir, model_path, output_path, api_key):
+  m3gnet_e_form = M3GNet.from_dir(model_path)
+  ehull_list = []
+  for file_name in os.listdir(dir):
+      crystal = Structure.from_file(dir + file_name, sort = True, merge_tol=0.01)
+      try:
+          e_form_predict = m3gnet_e_form.predict_structure(crystal)
+      except:
+          print("Could not predict formation energy of ", crystal)
+          ehull_list.append((file_name, "N/A"))
+          break
+      elements = ''.join([i for i in crystal.formula if not i.isdigit()]).split(" ")
+      mat_api_key = api_key
+      mpr = MPRester(mat_api_key)
   #Extracts information about crystals, and additional compounds
-          all_compounds = mpr.summary.search(elements = elements)
-          insert_list = []
-        for compound in all_compounds:
-              for element in ''.join([i for i in str(compound.composition) if not i.isdigit()]).split(" "):
-                  if element not in elements and element not in insert_list:
-                      insert_list.append(element)
+      all_compounds = mpr.summary.search(elements = elements)
+      insert_list = []
+    for compound in all_compounds:
+          for element in ''.join([i for i in str(compound.composition) if not i.isdigit()]).split(" "):
+              if element not in elements and element not in insert_list:
+                insert_list.append(element)
           for element in elements + insert_list:
               all_compounds += mpr.summary.search(elements = [element], num_elements = (1,1))
-  
           pde_list = []
           for i in range(len(all_compounds)):
               comp = str(all_compounds[i].composition.reduced_composition).replace(" ", "")
               pde_list.append(ComputedEntry(comp, all_compounds[i].formation_energy_per_atom))
-      
           try:
               diagram = PhaseDiagram(pde_list)
               _, pmg_ehull = diagram.get_decomp_and_e_above_hull(ComputedEntry(Composition(crystal.formula.replace(" ", "")), e_form_predict[0][0].numpy()))
@@ -167,12 +165,12 @@ def define_generator(latent_dim: int) -> keras.engine.functional.Functional:
   #Predicting distance above convex hull: anything on convex hull is considered stable
       m3gnet_model = M3GNET.from_dir(args.m3gnet_model_path)
       stable_ehulls = []
-    def filter_unrealistic_structures(m3gnet_model, ehull_threshold=0.1):
-      if pmg_ehull <= ehull_threshold:  
-         stable_ehulls.append(pmg_ehull)
-      else:
-          print("Unrealistic structure discarded: high energy above hull.")
-        return False
+def filter_unrealistic_structures(m3gnet_model, ehull_threshold=0.1):
+  if pmg_ehull <= ehull_threshold:  
+      stable_ehulls.append(pmg_ehull)
+  else:
+      print("Unrealistic structure discarded: high energy above hull.")
+    return False
   
 def define_gan(generator: keras.engine.functional.Functional, 
                discriminator: keras.engine.functional.Functional
