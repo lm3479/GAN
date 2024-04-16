@@ -97,6 +97,7 @@ def define_discriminator(in_shape: Tuple[int, int, int, int] = (64, 64, 4, 1)
 def define_generator(latent_dim: int) -> keras.engine.functional.Functional:
     n_nodes = 16 * 16 * 4
     noise_in = Input(shape=(latent_dim, ), name="noise_input")
+    hull_in = Input(shape=(e_hull_input_shape, ), name="ehull_input")
     y = dense_norm(noise_in, 484, False)
     y = dense_norm(y, 484, False)
     x = dense_norm(noise_in, n_nodes, False)
