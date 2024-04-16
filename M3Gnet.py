@@ -61,7 +61,8 @@ def dense_norm(x: keras.engine.keras_tensor.KerasTensor, units: int,
 #Discriminator -> LeakyReLU
 #Generator -> ReLU
 
-def define_discriminator(in_shape: Tuple[int, int, int, int] = (64, 64, 4, 1)
+def define_discriminator(in_shape: Tuple[int, int, int, int] = (64, 64, 4, 1),
+ehull_input_shape: Tuple[int, int, int, int] = (64, 64, 4, 1)) -> keras.engine.functional.Functional:
 ) -> keras.engine.functional.Functional:
     tens_in = Input(shape=in_shape, name="input")
     y = Flatten()(tens_in)
