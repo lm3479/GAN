@@ -254,7 +254,7 @@ def train(g_model: keras.engine.functional.Functional,
         np.savetxt(os.path.join(save_path, 'g_loss_list'),g_loss_list)
 #Compiling GAN model, specifying losses so model can perform backprop accordingly
 
-def main():
+def main(m3gnet_model: M3GNET):
     args = parser.parse_args()
     predict_ehull(args.dir, args.m3gnet_model_path, args.ehull_path, args.mp_api_key)
     latent_dim = 128
@@ -265,5 +265,16 @@ def main():
     train(generator, discriminator, gan_model,dataset, latent_dim, args.save_path)
 #Putting the layers together, constructing final GAN
 
+def main(m3gnet_model: M3GNet):
+    args = parser.parse_args()
+    predict_ehull(args.dir, args.m3gnet_model_path, args.ehull_path, args.mp_api_key, m3gnet_model)
+    latent_dim = 128
+    discriminator = define_discriminator()
+    generator = define_generator(latent_dim)
+    gan_model = define_gan(generator, discriminator)
+    dataset = load_real_samples(args.data_path)
+    train(generator, discriminator, gan_model, dataset, latent_dim, args.save_path)
+
 if __name__ == "__main__":
-    main()
+  m3gnet_model = M3GNET.from_dir(args.m3gnet_model_path)
+    main(m3gnet_model)
