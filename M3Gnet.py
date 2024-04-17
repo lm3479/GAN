@@ -135,6 +135,7 @@ def predict_ehull(dir, model_path, output_path, api_key):
       crystal = Structure.from_file(dir + file_name, sort = True, merge_tol=0.01)
       try:
           e_form_predict = m3gnet_e_form.predict_structure(crystal)
+        
       except:
           print("Could not predict formation energy of ", crystal)
           ehull_list.append((file_name, "N/A"))
