@@ -168,7 +168,7 @@ def predict_ehull(dir, model_path, output_path, api_key):
   #Predicting distance above convex hull: anything on convex hull is considered stable
       m3gnet_model = M3GNET.from_dir(args.m3gnet_model_path)
       stable_ehulls = []
-def filter_unrealistic_structures(m3gnet_model, ehull_threshold=0.1):
+def filter_unrealistic_structures(m3gnet_model, pmg_ehull, ehull_threshold=0.1):
   if pmg_ehull <= ehull_threshold:  
       stable_ehulls.append(pmg_ehull)
   else:
@@ -227,8 +227,6 @@ def generate_fake_samples(generator: keras.engine.functional.Functional,
     X_filtered = np.array(filtered_samples)
     y = np.zeros((len(X_filtered), 0))
     return X_filtered, y
-    y = np.zeros((n_samples,0))
-    return X,y
 #Lines 218-231: taking the more stable half of the e_hulls list from the generator to send to the discriminator
 
 def train(g_model: keras.engine.functional.Functional,
