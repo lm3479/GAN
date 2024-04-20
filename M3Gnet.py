@@ -276,16 +276,6 @@ def main(m3gnet_model: M3GNET):
     train(generator, discriminator, gan_model,dataset, latent_dim, args.save_path)
 #Putting the layers together, constructing final GAN
 
-def main(m3gnet_model: M3GNet):
-    args = parser.parse_args()
-    predict_ehull(args.dir, args.m3gnet_model_path, args.ehull_path, args.mp_api_key, m3gnet_model)
-    latent_dim = 128
-    discriminator = define_discriminator()
-    generator = define_generator(latent_dim)
-    gan_model = define_gan(generator, discriminator)
-    dataset = load_real_samples(args.data_path)
-    train(generator, discriminator, gan_model, dataset, latent_dim, args.save_path)
-
 if __name__ == "__main__":
   m3gnet_model = M3GNET.from_dir(args.m3gnet_model_path)
     main(m3gnet_model)
