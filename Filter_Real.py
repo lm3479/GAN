@@ -202,7 +202,6 @@ def load_real_samples(data_path: str, m3gnet_model, ehull_threshold=0.1) -> np.n
         Return False
       continue
  
-
 def generate_latent_points(latent_dim: int, n_samples:int) -> np.ndarray:
     x_input = random.randn(latent_dim*n_samples)
     x_input = x_input.reshape(n_samples,latent_dim)
@@ -214,8 +213,6 @@ def generate_fake_samples(generator: keras.engine.functional.Functional,
                           ) -> Tuple[np.ndarray, np.ndarray]:
     x_input = generate_latent_points(latent_dim,n_samples)
     X = generator.predict(x_input)
-
-#Lines 218-231: taking the more stable half of the e_hulls list from the generator to send to the discriminator
 
 def train(g_model: keras.engine.functional.Functional,
           d_model: keras.engine.functional.Functional,
