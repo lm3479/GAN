@@ -213,18 +213,7 @@ def generate_fake_samples(generator: keras.engine.functional.Functional,
                           ) -> Tuple[np.ndarray, np.ndarray]:
     x_input = generate_latent_points(latent_dim,n_samples)
     X = generator.predict(x_input)
-    m3gnet_model = M3GNet.from_dir(args.m3gnet_model_path)
-    e_hulls = []
-    for sample in X:
-        e_hull = m3gnet_model.predict_structure(sample)
-        e_hulls.append(e_hull)
-    samples_with_ehull = list(zip(X, e_hulls))
-    sorted_samples_with_ehull = sorted(samples_with_ehull, key=lambda x: x[1])
-    n_keep = n_samples // 2
-    filtered_samples = [sample for sample, _ in sorted_samples_with_ehull[:n_keep]]
-    X_filtered = np.array(filtered_samples)
-    y = np.zeros((len(X_filtered), 0))
-    return X_filtered, y
+
 #Lines 218-231: taking the more stable half of the e_hulls list from the generator to send to the discriminator
 
 def train(g_model: keras.engine.functional.Functional,
@@ -242,8 +231,6 @@ def train(g_model: keras.engine.functional.Functional,
             X_real,y_real = generate_real_samples(dataset, n_batch)
             d_loss_real,_ = d_model.train_on_batch(X_real, y_real)
             X_fake,y_fake = generate_fake_samples(g_model, latent_dim, n_batch)
-            X_fake_filtered = []
-            X_fake_filtered.append(pmg_ehull) #List that contain stable e_hulls
             X_fake_filtered = np.array(X_fake_filtered)
             y_fake_filtered = np.zeros((len(X_fake_filtered), 1))
             d_loss_fake, _ = d_model.train_on_batch(X_fake_filtered, y_fake_filtered)
