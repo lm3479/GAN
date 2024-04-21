@@ -145,16 +145,6 @@ def define_gan(generator: keras.engine.functional.Functional,
 #Creating finished model
 #Compiling optimizer (Adam, SGD variant) and loss function (binary cross-entropy)
 
-def load_real_samples(data_path: str) -> np.ndarray:
-    data_tensor = np.load(data_path)
-    return np.reshape(data_tensor, (data_tensor.shape[0], 64, 64, 4))
-#Loads in the tensor of real samples, which have the shape (x, 64, 64, 4)
-                          ) -> Tuple[np.ndarray, np.ndarray]:
-    ix = random.randint(0,dataset.shape[0],n_samples)
-    X = dataset[ix]
-y = np.ones((n_samples,1))
-    return X,y
-
 def predict_ehull(dir, model_path, output_path, api_key, e_hull threshold=0.1):
   m3gnet_e_form = M3GNet.from_dir(model_path)
   ehull_list = []
@@ -195,12 +185,23 @@ def predict_ehull(dir, model_path, output_path, api_key, e_hull threshold=0.1):
               continue
       np.save(output_path, np.array(ehull_list))
 
-def filter_unrealistic_structures(m3gnet_model, pmg_ehull, ehull_threshold=0.1):
-  if pmg_ehull <= ehull_threshold:  
-      return True
-  else:
-      print("Unrealistic structure discarded: high energy above hull.")
-    return False
+def load_real_samples(data_path: str, m3gnet_model, ehull_threshold=0.1) -> np.ndarray:
+  data_tensor = np.load(data_path)
+  dataset = np.reshape(data_tensor, (data_tensor.shape[0], 64, 64, 4))
+  filtered_dataset = []
+  for crystal in dataset:
+    try:
+      e_form_predict = m3gnet_model.predict_structure(crystal)
+      elements = ''.join([i for i in crystal.formula if not i.isdigit()]).split(" ")
+      pmg_ehull = predict_ehull(elements, e_form_predict)
+      if filter_unrealistic_structures(pmg_ehull, ehull_threshold):
+        filtered_dataset.append(crystal)
+        Return True
+      except Exception as e:
+        print(f"Error processing crystal: {e}")
+        Return False
+      continue
+ 
 
 def generate_latent_points(latent_dim: int, n_samples:int) -> np.ndarray:
     x_input = random.randn(latent_dim*n_samples)
