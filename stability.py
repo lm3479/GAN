@@ -278,33 +278,28 @@ def train(g_model: keras.engine.functional.Functional,
     g_loss_list = []
     for i in range(n_epochs):
         for j in range(bat_per_epoch//2):
-            # Train discriminator on real samples
+            #Real samples from the dataset
             X_real,y_real = generate_real_samples(dataset, n_batch)
             d_loss_real,_ = d_model.train_on_batch(X_real, y_real)
-            
-            # Train discriminator on fake samples from generator
+            #Fake samples from generator
             X_fake,y_fake = generate_fake_samples(g_model, latent_dim, n_batch)
             d_loss_fake, _ = d_model.train_on_batch(X_fake, y_fake)
-            
-            # Train generator to fool discriminator
+            #Train generator to fool discriminator
             X_gan = generate_latent_points(latent_dim, n_batch)
             y_gan = np.ones((n_batch,1))
             g_loss = gan_model.train_on_batch(X_gan,y_gan)
-            
-            # Calculate e_hull loss for generator
+            #Calculating e_hull loss for generator, which will make up 50% of the total feedback
             X_fake_filtered, _ = generate_fake_samples(g_model, latent_dim, n_batch)
             pmg_ehull = [sample[1] for sample in X_fake_filtered]  # Extracting e_hulls
             pmg_ehull = np.array(pmg_ehull)
             e_hull_loss = np.mean(pmg_ehull)  # Using mean e_hull as the loss
             g_loss += e_hull_loss  # Add e_hull loss to generator's loss
-
-            total_g_loss = 0.5 * g_loss + 0.5 * e_hull_loss
-
-        d_loss_real_list.append(d_loss_real)
-        d_loss_fake_list.append(d_loss_fake)
-        g_loss_list.append(g_loss)
-        g_model.save(os.path.join(save_path, 'generator'))
-        d_model.save(os.path.join(save_path, 'discriminator'))
-        np.savetxt(os.path.join(save_path, 'd_loss_real_list'),d_loss_real_list)
-        np.savetxt(os.path.join(save_path, 'd_loss_fake_list'),d_loss_fake_list)
-        np.savetxt(os.path.join(save_path, 'g_loss_list'),g_loss_list)
+            total_g_loss = 0.5 * g_loss + 0.5 * e_hull_loss #Partially from regular discriminator feedback & partially from e_hull
+            d_loss_real_list.append(d_loss_real)
+            d_loss_fake_list.append(d_loss_fake)
+            g_loss_list.append(g_loss)
+            g_model.save(os.path.join(save_path, 'generator'))
+            d_model.save(os.path.join(save_path, 'discriminator'))
+            np.savetxt(os.path.join(save_path, 'd_loss_real_list'),d_loss_real_list)
+            np.savetxt(os.path.join(save_path, 'd_loss_fake_list'),d_loss_fake_list)
+            np.savetxt(os.path.join(save_path, 'g_loss_list'),g_loss_list)
