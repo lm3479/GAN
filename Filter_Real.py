@@ -145,22 +145,8 @@ def define_gan(generator: keras.engine.functional.Functional,
 #Creating finished model
 #Compiling optimizer (Adam, SGD variant) and loss function (binary cross-entropy)
 
-def load_real_samples(data_path: str, m3gnet_model, ehull_threshold=0.1) -> np.ndarray:
-  data_tensor = np.load(data_path)
-  dataset = np.reshape(data_tensor, (data_tensor.shape[0], 64, 64, 4))
-  filtered_dataset = []
-  for crystal in dataset:
-    try:
-      e_form_predict = m3gnet_model.predict_structure(crystal)
-      elements = ''.join([i for i in crystal.formula if not i.isdigit()]).split(" ")
-      pmg_ehull = predict_ehull(elements, e_form_predict)
-      if filter_unrealistic_structures(pmg_ehull, ehull_threshold):
-        filtered_dataset.append(crystal)
-      except Exception as e:
-        print(f"Error processing crystal: {e}")
-      continue
-    filtered_dataset = np.array(filtered_dataset)
-    return filtered_dataset
+def load_real_samples(data_path: str) -> np.ndarray:
+    data_tensor = np.load(data_path)
     return np.reshape(data_tensor, (data_tensor.shape[0], 64, 64, 4))
 #Loads in the tensor of real samples, which have the shape (x, 64, 64, 4)
                           ) -> Tuple[np.ndarray, np.ndarray]:
@@ -168,7 +154,53 @@ def load_real_samples(data_path: str, m3gnet_model, ehull_threshold=0.1) -> np.n
     X = dataset[ix]
 y = np.ones((n_samples,1))
     return X,y
-#Selects random values and indicates that they're true (they're from the dataset as opposed to the generator)
+
+def predict_ehull(dir, model_path, output_path, api_key, e_hull threshold=0.1):
+  m3gnet_e_form = M3GNet.from_dir(model_path)
+  ehull_list = []
+  for file_name in os.listdir(dir):
+      crystal = Structure.from_file(dir + file_name, sort = True, merge_tol=0.01)
+      try:
+          e_form_predict = m3gnet_e_form.predict_structure(crystal)
+      except:
+          print("Could not predict formation energy of ", crystal)
+          ehull_list.append((file_name, "N/A"))
+          break
+      elements = ''.join([i for i in crystal.formula if not i.isdigit()]).split(" ")
+      mat_api_key = api_key
+      mpr = MPRester(mat_api_key)
+  #Extracts information about crystals, and additional compounds
+      all_compounds = mpr.summary.search(elements = elements)
+      insert_list = []
+      for compound in all_compounds:
+          for element in ''.join([i for i in str(compound.composition) if not i.isdigit()]).split(" "):
+              if element not in elements and element not in insert_list:
+                insert_list.append(element)
+          for element in elements + insert_list:
+              all_compounds += mpr.summary.search(elements = [element], num_elements = (1,1))
+          pde_list = []
+          for i in range(len(all_compounds)):
+              comp = str(all_compounds[i].composition.reduced_composition).replace(" ", "")
+              pde_list.append(ComputedEntry(comp, all_compounds[i].formation_energy_per_atom))
+          try:
+              diagram = PhaseDiagram(pde_list)
+              _, pmg_ehull = diagram.get_decomp_and_e_above_hull(ComputedEntry(Composition(crystal.formula.replace(" ", "")), e_form_predict[0][0].numpy()))
+              if filter_unrealistic_structures(m3gnet_e_form, pmg_ehull, ehull_threshold):
+                ehull_list.append((file_name, pmg_ehull)
+              else:
+                print("Unrealistic structure: discarded:", crystal)                  
+          except:
+              print("Could not create phase diagram")
+              ehull_list.append((file_name, "N/A"))
+              continue
+      np.save(output_path, np.array(ehull_list))
+
+def filter_unrealistic_structures(m3gnet_model, pmg_ehull, ehull_threshold=0.1):
+  if pmg_ehull <= ehull_threshold:  
+      return True
+  else:
+      print("Unrealistic structure discarded: high energy above hull.")
+    return False
 
 def generate_latent_points(latent_dim: int, n_samples:int) -> np.ndarray:
     x_input = random.randn(latent_dim*n_samples)
