@@ -222,7 +222,7 @@ def generate_fake_samples(generator: keras.engine.functional.Functional,
         e_hulls.append(e_hull)
     samples_with_ehull = list(zip(X, e_hulls))
     sorted_samples_with_ehull = sorted(samples_with_ehull, key=lambda x: x[1])
-    n_keep = n_samples // 2
+    n_keep = n_samples // 2 #Better half of the generated e_hulls
     filtered_samples = [sample for sample, _ in sorted_samples_with_ehull[:n_keep]]
     X_filtered = np.array(filtered_samples)
     y = np.zeros((len(X_filtered), 0))
