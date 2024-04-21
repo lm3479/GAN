@@ -145,8 +145,23 @@ def define_gan(generator: keras.engine.functional.Functional,
 #Creating finished model
 #Compiling optimizer (Adam, SGD variant) and loss function (binary cross-entropy)
 
-def load_real_samples(data_path: str) -> np.ndarray:
+  def load_real_samples(data_path: str, m3gnet_model, ehull_threshold=0.1) -> np.ndarray:
     data_tensor = np.load(data_path)
+    dataset = np.reshape(data_tensor, (data_tensor.shape[0], 64, 64, 4))
+    filtered_dataset = []
+    for crystal in dataset:
+        try:
+            e_form_predict = m3gnet_model.predict_structure(crystal)
+            elements = ''.join([i for i in crystal.formula if not i.isdigit()]).split(" ")
+            pmg_ehull = predict_ehull(elements, e_form_predict)
+            if filter_unrealistic_structures(pmg_ehull, ehull_threshold):
+                filtered_dataset.append(crystal)
+        except Exception as e:
+            print(f"Error processing crystal: {e}")
+            continue
+    filtered_dataset = np.array(filtered_dataset)
+    return filtered_dataset
+
     return np.reshape(data_tensor, (data_tensor.shape[0], 64, 64, 4))
 #Loads in the tensor of real samples, which have the shape (x, 64, 64, 4)
 
