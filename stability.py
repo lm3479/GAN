@@ -310,13 +310,12 @@ def train(g_model: keras.engine.functional.Functional,
             pmg_ehull = np.array(pmg_ehull)
             e_hull_loss = np.mean(pmg_ehull)  # Using mean e_hull as the loss
             g_loss += e_hull_loss  # Add e_hull loss to generator's loss
-            
-        # Append losses to lists
+
+            total_g_loss = 0.5 * g_loss + 0.5 * e_hull_loss
+
         d_loss_real_list.append(d_loss_real)
         d_loss_fake_list.append(d_loss_fake)
         g_loss_list.append(g_loss)
-
-        # Save models and losses
         g_model.save(os.path.join(save_path, 'generator'))
         d_model.save(os.path.join(save_path, 'discriminator'))
         np.savetxt(os.path.join(save_path, 'd_loss_real_list'),d_loss_real_list)
