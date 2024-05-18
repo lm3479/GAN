@@ -252,6 +252,54 @@ def train(g_model: keras.engine.functional.Functional,
         np.savetxt(os.path.join(save_path, 'g_loss_list'),g_loss_list)
 #Compiling GAN model, specifying losses so model can perform backprop accordingly
 
+def train_unrolled(g_model: keras.engine.functional.Functional,
+                   d_model: keras.engine.functional.Functional,
+                   gan_model: keras.engine.functional.Functional,
+                   dataset: np.ndarray, latent_dim: int, save_path: str,
+                   n_epochs: int = 100, n_batch: int = 64, unroll_steps: int = 5) -> None:
+    # Trains the GAN over n_epochs, each containing n_batch examples
+    bat_per_epoch = int(dataset.shape[0] / n_batch)
+    d_loss_real_list = []
+    d_loss_fake_list = []
+    g_loss_list = []
+    
+    for i in range(n_epochs):
+        for j in range(bat_per_epoch // 2):
+            # Update discriminator
+            X_real, y_real = generate_real_samples(dataset, n_batch)
+            d_loss_real, _ = d_model.train_on_batch(X_real, y_real)
+
+            X_fake, y_fake = generate_fake_samples(g_model, latent_dim, n_batch)
+            d_loss_fake, _ = d_model.train_on_batch(X_fake, y_fake)
+
+            # Store losses for later
+            d_loss_real_list.append(d_loss_real)
+            d_loss_fake_list.append(d_loss_fake)
+
+            # Unrolled steps for generator
+            for k in range(unroll_steps):
+                # Generate fake samples
+                X_gan = generate_latent_points(latent_dim, n_batch)
+                y_gan = np.ones((n_batch, 1))
+
+                # Calculate generator loss including e_hull
+                g_loss = gan_model.train_on_batch(X_gan, y_gan)
+                X_fake_filtered, _ = generate_fake_samples(g_model, latent_dim, n_batch)
+                pmg_ehull = [sample[1] for sample in X_fake_filtered]  # Extracting e_hulls
+                pmg_ehull = np.array(pmg_ehull)
+                e_hull_loss = np.mean(pmg_ehull)  # Using mean e_hull as the loss
+                g_loss += e_hull_loss  # Add e_hull loss to generator's loss
+                total_g_loss = 0.5 * g_loss + 0.5 * e_hull_loss  # Combining the losses
+
+                g_loss_list.append(total_g_loss)
+
+        # Save models and losses after each epoch
+        g_model.save(os.path.join(save_path, 'generator'))
+        d_model.save(os.path.join(save_path, 'discriminator'))
+        np.savetxt(os.path.join(save_path, 'd_loss_real_list'), d_loss_real_list)
+        np.savetxt(os.path.join(save_path, 'd_loss_fake_list'), d_loss_fake_list)
+        np.savetxt(os.path.join(save_path, 'g_loss_list'), g_loss_list)
+
 def main(m3gnet_model: M3GNET):
     args = parser.parse_args()
     predict_ehull(args.dir, args.m3gnet_model_path, args.ehull_path, args.mp_api_key)
