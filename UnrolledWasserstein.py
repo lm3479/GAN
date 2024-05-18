@@ -132,6 +132,83 @@ def define_generator(latent_dim: int) -> keras.engine.functional.Functional:
     x = z + x
     outMat = Conv3D(1,(1,1,10), activation = 'sigmoid', strides = (1,1,10), padding = 'valid')(x)
     model = Model(inputs=noise_in, outputs=outMat)
+
+class NoiseGenerator(object):
+    def __init__(self, noise_shapes, batch_size=512, random_seed=None):
+        self.noise_shapes = noise_shapes
+        self.batch_size = batch_size
+        self.prng = np.random.RandomState(seed=random_seed)
+
+    def __iter__(self):
+        return self
+
+    def __next__(self, mean=0.0, std=1.0):
+
+        def noise(shape):
+            shape = (self.batch_size, shape)
+
+            n = self.prng.randn(*shape).astype(np.float32)
+            if std != 1.0:
+                n *= std
+            if mean != 0.0:
+                n += mean
+            return n
+
+        return [noise(s) for s in self.noise_shapes]
+
+def wasserstein_loss(y_true, y_pred):
+    return K.mean(y_true * y_pred, axis=-1)
+
+class RandomWeightedAverage(_Merge):
+    def build(self, input_shape):
+        super(RandomWeightedAverage, self).build(input_shape)
+        if len(input_shape) != 2:
+            raise ValueError('A `RandomWeightedAverage` layer should be '
+                             'called on exactly 2 inputs')
+
+    def _merge_function(self, inputs):
+        if len(inputs) != 2:
+            raise ValueError('A `RandomWeightedAverage` layer should be '
+                             'called on exactly 2 inputs')
+
+        (x,y) = inputs
+        shape = K.shape(x)
+        weights = K.random_uniform(shape[:1],0,1)
+        for i in range(len(K.int_shape(x))-1):
+            weights = K.expand_dims(weights,-1)
+        rw = x*weights + y*(1-weights)
+        return rw
+      
+class Nontrainable(object):
+    
+    def __init__(self, model):
+        self.model = model
+ 
+    def __enter__(self):
+        self.trainable_status = self.model.trainable
+        self.model.trainable = False
+        return self.model
+ 
+    def __exit__(self, type, value, traceback):
+        self.model.trainable = self.trainable_status
+ 
+class GradientPenalty(Layer):
+    def call(self, inputs):
+        real_image, generated_image, disc = inputs
+        avg_image = RandomWeightedAverage()(
+        [real_image, generated_image]
+        )
+        with tf.GradientTape() as tape:
+          tape.watch(avg_image)
+          disc_avg = disc(avg_image)
+        
+        grad = tape.gradient(disc_avg,[avg_image])[0]
+        GP = K.sqrt(K.sum(K.batch_flatten(K.square(grad)), axis=1, keepdims=True))-1
+        return GP
+ 
+    def compute_output_shape(self, input_shapes):
+        return (input_shapes[1][0], 1)
+
 def predict_ehull(dir, model_path, output_path, api_key):
   m3gnet_e_form = M3GNet.from_dir(model_path)
   ehull_list = []
