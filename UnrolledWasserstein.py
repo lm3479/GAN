@@ -1,15 +1,12 @@
-#The "optimal discriminator" for a given class of generators will minimize real/fake divergence, as proposed in the original GAN by Goodfellow et al.
-#In practice, the set of hyperparameters for which training is successful is small in practice
-#In popular optimization schemes (Adam, Stochastic GD, RMSProp), backpropogate gradients through unrolled optimization
-
-
-#the original GAN proposed by Goodfellow et al. minmizes divergence between distribution and generator
-#
-
-When using
-the optimal discriminator for a given class of generators, the original GAN proposed by Goodfellow
-et al. minimizes the Jensen-Shannon divergence between the data distribution and the generator,
-and extensions generalize this to a wider class of divergences
+#The original GAN (Goodfellow et al.) proposed that the discriminator's parameters should be updated several times before each single step of generator
+#In standard GAN training, each change to the generator's parameters is a partial collapse towards a delta function
+#The second term refers to how the discriminator would react to a change in the generator, reducing the tendency of mode collapse
+#For example, as the generator collapses towards a delta function, the discriminator will assign lower probability to the state and increase generator loss
+#The cycle of the generator moving and discriminator following has alternating gradient descent with a fixed learning rate
+#In the unrolled case, this undesirable behavior no longer occurs
+#The generator's feedback for backprop take into account HOW the discriminator will respond
+#The generator will try to make steps that the discriminator will have a hard time responding to
+#This helps the generator spread its mass to make the next discriminator step less effective as opposed to collapsing
 #Unrolled generative adversarial networks: reduce the probability of mode collapse by playing 'k' number of steps for how the generator can be optimized
 #Very similar to long short-term memory (LSTM) recurrent neural networks: because the generator accumulates its parameter change 'k' times
 #Simply put, an unrolled GAN uses the cost function calculated in the last few steps for generator's backprop, and the only the very first step for the discriminator
