@@ -23,6 +23,7 @@ from pymatgen.entries.computed_entries import ComputedEntry
 from pymatgen.analysis.phase_diagram import PhaseDiagram
 from pymatgen.ext.matproj import MPRester
 from m3gnet.models import M3GNet
+unrolled_d_optimizer = tf.keras.optimizers.Adam(learning_rate=0.0002, beta_1=0.5)
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--data_path", type=str, help="Path to where the dataset is stored.")
@@ -480,6 +481,29 @@ def train(g_model: keras.engine.functional.Functional,
     d_loss_real_list = []
     d_loss_fake_list = []
     g_loss_list = []
+
+for epoch in range(epochs):
+    for image_batch in dataset:
+        images = image_batch
+        noise = tf.random.normal([batch_size, noise_dim])
+        with tf.GradientTape() as disc_tape:
+            generated_images = generator(noise, training=True)
+            real_output = discriminator(images, training=True)
+            fake_output = discriminator(generated_images, training=True)
+            d_loss = discriminator_loss(real_output, fake_output)
+        gradients_of_discriminator = disc_tape.gradient(d_loss, discriminator.trainable_variables)
+        d_optimizer.apply_gradients(zip(gradients_of_discriminator, discriminator.trainable_variables))
+        unrolled_steps = 5
+        for i in range(unrolled_steps):
+            with tf.GradientTape() as tape:
+                fake_images = generator(tf.random.normal([batch_size, noise_dim]), training=True)
+                real_output = discriminator(images, training=True)
+                fake_output = discriminator(fake_images, training=True)
+                d_loss = discriminator_loss(real_output, fake_output)
+            gradients = tape.gradient(d_loss, discriminator.trainable_variables)
+            unrolled_d_optimizer.apply_gradients(zip(gradients, discriminator.trainable_variables))
+            noise = tf.random.normal([batch_size, noise_dim])
+      
     for i in range(n_epochs):
         for j in range(bat_per_epoch//2):
             #Real samples from the dataset
