@@ -1,9 +1,4 @@
-#The original GAN (Goodfellow et al.) proposed that the discriminator's parameters should be updated several times before each single step of generator
-#The cycle of the generator moving and discriminator following, with alternating gradient descent and a fixed learning rate is known to suffer mode collapse
-#In an unrolled GAN, this is avoided
-#The generator's feedback for backprop take into account HOW the discriminator will respond
-#The generator will try to make steps that the discriminator will have a hard time responding to
-#This helps the generator spread its mass to make the next discriminator step less effective, as opposed to collapsing
+#In an unrolled GAN, mode collapse is avoided
 #Simply put, unrolled GANs reduce the probability of mode collapse by playing 'k' number of steps for how the generator can be optimized
 
 import os
@@ -482,28 +477,50 @@ def train(g_model: keras.engine.functional.Functional,
     d_loss_fake_list = []
     g_loss_list = []
 
-for epoch in range(epochs):
-    for image_batch in dataset:
-        images = image_batch
+def update_discriminator(images, noise, generator, discriminator, optimizer):
+    with tf.GradientTape() as disc_tape:
+        generated_images = generator(noise, training=True)
+        real_output = discriminator(images, training=True)
+        fake_output = discriminator(generated_images, training=True)
+        d_loss = discriminator_loss(real_output, fake_output)
+    
+    gradients_of_discriminator = disc_tape.gradient(d_loss, discriminator.trainable_variables)
+    optimizer.apply_gradients(zip(gradients_of_discriminator, discriminator.trainable_variables))
+    return d_loss
+def unroll_discriminator(images, noise_dim, batch_size, generator, discriminator, optimizer, unrolled_steps):
+    for _ in range(unrolled_steps):
         noise = tf.random.normal([batch_size, noise_dim])
-        with tf.GradientTape() as disc_tape:
-            generated_images = generator(noise, training=True)
+        with tf.GradientTape() as tape:
+            fake_images = generator(noise, training=True)
             real_output = discriminator(images, training=True)
-            fake_output = discriminator(generated_images, training=True)
+            fake_output = discriminator(fake_images, training=True)
             d_loss = discriminator_loss(real_output, fake_output)
-        gradients_of_discriminator = disc_tape.gradient(d_loss, discriminator.trainable_variables)
-        d_optimizer.apply_gradients(zip(gradients_of_discriminator, discriminator.trainable_variables))
-        unrolled_steps = 5
-        for i in range(unrolled_steps):
-            with tf.GradientTape() as tape:
-                fake_images = generator(tf.random.normal([batch_size, noise_dim]), training=True)
-                real_output = discriminator(images, training=True)
-                fake_output = discriminator(fake_images, training=True)
-                d_loss = discriminator_loss(real_output, fake_output)
-            gradients = tape.gradient(d_loss, discriminator.trainable_variables)
-            unrolled_d_optimizer.apply_gradients(zip(gradients, discriminator.trainable_variables))
-            noise = tf.random.normal([batch_size, noise_dim])
-      
+        
+        gradients = tape.gradient(d_loss, discriminator.trainable_variables)
+        optimizer.apply_gradients(zip(gradients, discriminator.trainable_variables))
+
+  unrolled_d_optimizer = tf.keras.optimizers.Adam(learning_rate=0.0002, beta_1=0.5)
+
+for image_batch in dataset:
+    images = image_batch
+    noise = tf.random.normal([batch_size, noise_dim])
+    
+    # Update discriminator
+    d_loss = update_discriminator(images, noise, generator, discriminator, d_optimizer)
+    
+    # Unroll discriminator
+    unroll_discriminator(images, noise_dim, batch_size, generator, discriminator, unrolled_d_optimizer, unrolled_steps=5)
+    
+    # Update generator
+    noise = tf.random.normal([batch_size, noise_dim])
+    with tf.GradientTape() as gen_tape:
+        generated_images = generator(noise, training=True)
+        fake_output = discriminator(generated_images, training=True)
+        g_loss = generator_loss(fake_output)
+    
+    gradients_of_generator = gen_tape.gradient(g_loss, generator.trainable_variables)
+    g_optimizer.apply_gradients(zip(gradients_of_generator, generator.trainable_variables))
+
     for i in range(n_epochs):
         for j in range(bat_per_epoch//2):
             #Real samples from the dataset
