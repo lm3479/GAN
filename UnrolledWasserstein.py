@@ -437,24 +437,6 @@ class WGANGP(object):
             np.save(model_name + "fake_loss", np.array(disc1LossArr))
             np.save(model_name + "gp_loss", np.array(disc2LossArr))
             np.save(model_name + "generator_loss", np.array(genLossArr))
-
-
-def train(g_model: keras.engine.functional.Functional,
-          d_model: keras.engine.functional.Functional,
-          gan_model: keras.engine.functional.Functional,
-          dataset: np.ndarray, latent_dim: int, save_path: str,
-          n_epochs: int = 100, n_batch: int = 64) -> None:
-#Trains the GAN over 100 epochs, each containing 64 examples
-          bat_per_epoch = int(dataset.shape[0]/n_batch)
-          d_loss_real_list = []
-          d_loss_fake_list = []
-          g_loss_list = []
-          for i in range(n_epochs):
-              for j in range(bat_per_epoch//2):
-                 X_real, y_real = generate_real_samples(dataset, n_batch)
-                  d_loss_real, _ = d_model.train_on_batch(X_real, y_real)
-                  X_fake, y_fake = generate_fake_samples(g_model, latent_dim, n_batch)
-                  d_loss_fake, _ = d_model.train_on_batch(X_fake, y_fake)
                    for k in range(unroll_steps):
                         # Generate fake samples
                         X_gan = generate_latent_points(latent_dim, n_batch)
