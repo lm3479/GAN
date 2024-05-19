@@ -1,6 +1,6 @@
 #The original GAN (Goodfellow et al.) proposed that the discriminator's parameters should be updated several times before each single step of generator
-#The cycle of the generator moving and discriminator following has alternating gradient descent with a fixed learning rate is known not to converge [mode collapse]
-#In the unrolled case, this is avoided
+#The cycle of the generator moving and discriminator following, with alternating gradient descent and a fixed learning rate is known to suffer mode collapse
+#In an unrolled GAN, this is avoided
 #The generator's feedback for backprop take into account HOW the discriminator will respond
 #The generator will try to make steps that the discriminator will have a hard time responding to
 #This helps the generator spread its mass to make the next discriminator step less effective, as opposed to collapsing
@@ -137,6 +137,7 @@ def define_generator(latent_dim: int) -> keras.engine.functional.Functional:
     outMat = Conv3D(1,(1,1,10), activation = 'sigmoid', strides = (1,1,10), padding = 'valid')(x)
     model = Model(inputs=noise_in, outputs=outMat)
 
+#Upcoming: Wasserstein loss
 class NoiseGenerator(object):
     def __init__(self, noise_shapes, batch_size=512, random_seed=None):
         self.noise_shapes = noise_shapes
