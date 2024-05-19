@@ -1,3 +1,15 @@
+#The "optimal discriminator" for a given class of generators will minimize real/fake divergence, as proposed in the original GAN by Goodfellow et al.
+#In practice, the set of hyperparameters for which training is successful is small in practice
+#In popular optimization schemes (Adam, Stochastic GD, RMSProp), backpropogate gradients through unrolled optimization
+
+
+#the original GAN proposed by Goodfellow et al. minmizes divergence between distribution and generator
+#
+
+When using
+the optimal discriminator for a given class of generators, the original GAN proposed by Goodfellow
+et al. minimizes the Jensen-Shannon divergence between the data distribution and the generator,
+and extensions generalize this to a wider class of divergences
 #Unrolled generative adversarial networks: reduce the probability of mode collapse by playing 'k' number of steps for how the generator can be optimized
 #Very similar to long short-term memory (LSTM) recurrent neural networks: because the generator accumulates its parameter change 'k' times
 #Simply put, an unrolled GAN uses the cost function calculated in the last few steps for generator's backprop, and the only the very first step for the discriminator
