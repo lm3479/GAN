@@ -483,24 +483,22 @@ def update_discriminator(images, noise, generator, discriminator, optimizer):
         real_output = discriminator(images, training=True)
         fake_output = discriminator(generated_images, training=True)
         d_loss = discriminator_loss(real_output, fake_output)
-    
-    gradients_of_discriminator = disc_tape.gradient(d_loss, discriminator.trainable_variables)
-    optimizer.apply_gradients(zip(gradients_of_discriminator, discriminator.trainable_variables))
+    discriminator_gradient = disc_tape.gradient(d_loss, discriminator.trainable_variables)
+    optimizer.apply_gradients(zip(discriminator_gradient, discriminator.trainable_variables))
     return d_loss
+  
 def unroll_discriminator(images, noise_dim, batch_size, generator, discriminator, optimizer, unrolled_steps):
-    for _ in range(unrolled_steps):
+    for i in range(unrolled_steps):
         noise = tf.random.normal([batch_size, noise_dim])
         with tf.GradientTape() as tape:
             fake_images = generator(noise, training=True)
             real_output = discriminator(images, training=True)
             fake_output = discriminator(fake_images, training=True)
             d_loss = discriminator_loss(real_output, fake_output)
-        
         gradients = tape.gradient(d_loss, discriminator.trainable_variables)
         optimizer.apply_gradients(zip(gradients, discriminator.trainable_variables))
 
-  unrolled_d_optimizer = tf.keras.optimizers.Adam(learning_rate=0.0002, beta_1=0.5)
-
+unrolled_d_optimizer = tf.keras.optimizers.Adam(learning_rate=0.0002, beta_1=0.5
 for image_batch in dataset:
     images = image_batch
     noise = tf.random.normal([batch_size, noise_dim])
@@ -517,9 +515,6 @@ for image_batch in dataset:
         generated_images = generator(noise, training=True)
         fake_output = discriminator(generated_images, training=True)
         g_loss = generator_loss(fake_output)
-    
-    gradients_of_generator = gen_tape.gradient(g_loss, generator.trainable_variables)
-    g_optimizer.apply_gradients(zip(gradients_of_generator, generator.trainable_variables))
 
     for i in range(n_epochs):
         for j in range(bat_per_epoch//2):
