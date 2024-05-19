@@ -301,58 +301,177 @@ def generate_fake_samples(generator: keras.engine.functional.Functional,
                           ) -> Tuple[np.ndarray, np.ndarray]:
     x_input = generate_latent_points(latent_dim,n_samples)
     X = generator.predict(x_input)
-                            
+    x_input = generate_latent_points(latent_dim,n_samples)
+    X = generator.predict(x_input)
+    y = np.zeros((n_samples,1))
+    return X,y
+
+def define_critic(in_shape = (64, 64, 4, 1)
+) -> keras.engine.functional.Functional:
+    tens_in = Input(shape=in_shape, name="input")
+    x = conv_norm(tens_in, 16, (1,1,1), (1,1,1), True)
+    x = conv_norm(x, 16, (1,1,1), (1,1,1), True)
+    x = conv_norm(x, 16, (3,3,1), (1,1,1), True)
+    x = conv_norm(x, 16, (3,3,1), (1,1,1), True) 
+    x = conv_norm(x, 16, (3,3,1), (1,1,1), True)
+    x = conv_norm(x, 16, (3,3,1), (1,1,1), True) 
+    x = conv_norm(x, 32, (7,7,1), (1,1,1), True)
+    x = conv_norm(x, 32, (7,7,1), (1,1,1), True)  
+    x = conv_norm(x, 32, (7,7,1), (1,1,1), True)  
+    x = conv_norm(x, 64, (7,7,1), (1,1,1), True)  
+    x = conv_norm(x, 64, (5,5,2), (5,5,1), True)  
+    x = conv_norm(x, 128, (2,2,2), (2,2,2), True)  
+    x = Flatten()(x)
+    x = Dropout(0.25)(x)
+    disc_out = tfa.layers.SpectralNormalization(Dense(1, activation = "linear"))(x)
+    model = Model(inputs=tens_in, outputs=disc_out)
+    return model
+
+class WGANGP(object):
+    def __init__(self, gen, disc, lr_gen=0.0001, lr_disc=0.0001):
+ 
+      self.gen = gen
+      self.disc = disc
+      self.lr_gen = lr_gen
+      self.lr_disc = lr_disc
+      self.build()
+ 
+    def build(self):
+        # ...
+        try:
+            #tens_shape = input_shapes(self.disc, "input")[0]
+            tens_shape = (64, 64, 4, 1)
+        except:
+            tens_shape = (64, 64, 4, 1)
+        try:
+            noise_shapes = input_shapes(self.gen, "noise_input")
+        except:
+            noise_shapes =(128,)
+ 
+        self.opt_disc = Adam(self.lr_disc, beta_1=0.0, beta_2=0.9)
+        self.opt_gen = Adam(self.lr_gen, beta_1=0.0, beta_2=0.9)
+        
+        with Nontrainable(self.gen):
+            real_image = Input(shape=tens_shape)
+            noise = [Input(shape=s) for s in noise_shapes]
+            
+            disc_real = self.disc(real_image)
+            generated_image = self.gen(noise)
+            disc_fake = self.disc(generated_image)
+ 
+            gp = GradientPenalty()([real_image, generated_image, self.disc])
+            self.disc_trainer = Model(
+                inputs=[real_image, noise],
+                outputs=[disc_real, disc_fake, gp]
+            )
+            self.disc_trainer.compile(optimizer=self.opt_disc,
+                loss=[wasserstein_loss, wasserstein_loss, 'mse'],
+                loss_weights=[1.0, 1.0, 10.0]
+            )
+        
+        with Nontrainable(self.disc):
+            noise = [Input(shape=s) for s in noise_shapes]
+            
+            generated_image = self.gen(noise)
+            disc_fake = self.disc(generated_image)
+            
+            self.gen_trainer = Model(
+                inputs=noise, 
+                outputs=disc_fake
+            )
+            self.gen_trainer.compile(optimizer=self.opt_gen,
+                loss=wasserstein_loss)
+      
+    def fit_generator(self,noise_gen, dataset, latent_dim, n_epochs = 10, n_batch = 256,n_critic = 5, model_name=None):
+        bat_per_epoch = int(53856/n_batch)
+        n_steps = bat_per_epoch*n_epochs
+        half_batch = int(n_batch/2)
+        disc_out_shape = (n_batch, self.disc.output_shape[1])
+        real_target = -np.ones(disc_out_shape, dtype=np.float32)
+        fake_target = -real_target
+        gp_target = np.zeros_like(real_target)
+        lastEpoch = 0
+        genLossArr = []
+        disc0LossArr = []
+        disc1LossArr = []
+        disc2LossArr = []
+        for epoch in range(n_epochs):
+            print("Epoch {}/{}".format(epoch+1, n_epochs))
+            # Initialize progbar and batch counter
+            progbar = generic_utils.Progbar(
+                bat_per_epoch*n_batch)
+            for step in range(bat_per_epoch):
+ 
+                # Train discriminator
+                with Nontrainable(self.gen):
+                    for repeat in range(n_critic):
+                        tens_batch, _ = generate_real_samples(dataset, n_batch)
+                        noise_batch = next(noise_gen)
+                        #print(tens_batch.shape)
+                        disc_loss = self.disc_trainer.train_on_batch(
+                            [tens_batch]+noise_batch,
+                            [real_target, fake_target, gp_target]
+                        )
+ 
+                # Train generator
+                with Nontrainable(self.disc):
+                    noise_batch = next(noise_gen)
+                    gen_loss = self.gen_trainer.train_on_batch(
+                        noise_batch, real_target)
+                losses = []
+                for (i,dl) in enumerate(disc_loss):
+                    losses.append(("D{}".format(i), dl))
+                    if i == 0:
+                        disc0LossArr.append(dl)
+                    elif i == 1:
+                        disc1LossArr.append(dl)
+                    elif i == 2:
+                        disc2LossArr.append(dl)
+                losses.append(("G0", gen_loss))
+                genLossArr.append(gen_loss)
+                progbar.add(n_batch, 
+                    values=losses)
+            self.gen.save(model_name + "gen")
+            self.disc.save(model_name + "critic")
+            np.save(model_name + "real_loss", np.array(disc0LossArr))
+            np.save(model_name + "fake_loss", np.array(disc1LossArr))
+            np.save(model_name + "gp_loss", np.array(disc2LossArr))
+            np.save(model_name + "generator_loss", np.array(genLossArr))
+
+
 def train(g_model: keras.engine.functional.Functional,
           d_model: keras.engine.functional.Functional,
           gan_model: keras.engine.functional.Functional,
           dataset: np.ndarray, latent_dim: int, save_path: str,
           n_epochs: int = 100, n_batch: int = 64) -> None:
 #Trains the GAN over 100 epochs, each containing 64 examples
-    bat_per_epoch = int(dataset.shape[0]/n_batch)
-    d_loss_real_list = []
-    d_loss_fake_list = []
-    g_loss_list = []
-    for i in range(n_epochs):
-        for j in range(bat_per_epoch//2):
-           X_real, y_real = generate_real_samples(dataset, n_batch)
-            d_loss_real, _ = d_model.train_on_batch(X_real, y_real)
-
-            X_fake, y_fake = generate_fake_samples(g_model, latent_dim, n_batch)
-            d_loss_fake, _ = d_model.train_on_batch(X_fake, y_fake)
-             for k in range(unroll_steps):
-                  # Generate fake samples
-                  X_gan = generate_latent_points(latent_dim, n_batch)
-                  y_gan = np.ones((n_batch, 1))
-  
-                  # Calculate generator loss including e_hull
-                  g_loss = gan_model.train_on_batch(X_gan, y_gan)
-                  X_fake_filtered, _ = generate_fake_samples(g_model, latent_dim, n_batch)
-                  pmg_ehull = [sample[1] for sample in X_fake_filtered]  # Extracting e_hulls
-                  pmg_ehull = np.array(pmg_ehull)
-                  e_hull_loss = np.mean(pmg_ehull)  # Using mean e_hull as the loss
-                  g_loss += e_hull_loss  # Add e_hull loss to generator's loss
-                  total_g_loss = 0.5 * g_loss + 0.5 * e_hull_loss  # Combining the losses
-
-                  g_loss_list.append(total_g_loss)
-            X_fake_filtered = []
-            X_fake_filtered.append(pmg_ehull) #List that contain stable e_hulls
-            X_fake_filtered = np.array(X_fake_filtered)
-            y_fake_filtered = np.zeros((len(X_fake_filtered), 1))
-            d_loss_fake, _ = d_model.train_on_batch(X_fake_filtered, y_fake_filtered)
-            d_loss_fake,_ = d_model.train_on_batch(X_fake, y_fake)
-            X_gan = generate_latent_points(latent_dim, n_batch)
-            y_gan = np.ones((n_batch,1))
-            g_loss = gan_model.train_on_batch(X_gan,y_gan)
-        
-        d_loss_real_list.append(d_loss_real)
-        d_loss_fake_list.append(d_loss_fake)
-        g_loss_list.append(g_loss)
-
-        g_model.save(os.path.join(save_path, 'generator'))
-        d_model.save(os.path.join(save_path, 'discriminator'))
-        np.savetxt(os.path.join(save_path, 'd_loss_real_list'),d_loss_real_list)
-        np.savetxt(os.path.join(save_path, 'd_loss_fake_list'),d_loss_fake_list)
-        np.savetxt(os.path.join(save_path, 'g_loss_list'),g_loss_list)
+          bat_per_epoch = int(dataset.shape[0]/n_batch)
+          d_loss_real_list = []
+          d_loss_fake_list = []
+          g_loss_list = []
+          for i in range(n_epochs):
+              for j in range(bat_per_epoch//2):
+                 X_real, y_real = generate_real_samples(dataset, n_batch)
+                  d_loss_real, _ = d_model.train_on_batch(X_real, y_real)
+                  X_fake, y_fake = generate_fake_samples(g_model, latent_dim, n_batch)
+                  d_loss_fake, _ = d_model.train_on_batch(X_fake, y_fake)
+                   for k in range(unroll_steps):
+                        # Generate fake samples
+                        X_gan = generate_latent_points(latent_dim, n_batch)
+                        y_gan = np.ones((n_batch, 1))
+                        # Calculate generator loss including e_hull
+                        g_loss = gan_model.train_on_batch(X_gan, y_gan)
+                        X_fake_filtered, _ = generate_fake_samples(g_model, latent_dim, n_batch)
+                        pmg_ehull = [sample[1] for sample in X_fake_filtered]  # Extracting e_hulls
+                        pmg_ehull = np.array(pmg_ehull)
+                        e_hull_loss = np.mean(pmg_ehull)  # Using mean e_hull as the loss
+                        g_loss += e_hull_loss  # Add e_hull loss to generator's loss
+                        total_g_loss = 0.5 * g_loss + 0.5 * e_hull_loss  # Combining the losses
+                        g_model.save(os.path.join(save_path, 'generator'))
+                        d_model.save(os.path.join(save_path, 'discriminator'))
+                        np.savetxt(os.path.join(save_path, 'd_loss_real_list'),d_loss_real_list)
+                        np.savetxt(os.path.join(save_path, 'd_loss_fake_list'),d_loss_fake_list)
+                        np.savetxt(os.path.join(save_path, 'g_loss_list'),g_loss_list)
 #Compiling GAN model, specifying losses so model can perform backprop accordingly
 
 def main(m3gnet_model: M3GNET):
