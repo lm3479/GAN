@@ -1,6 +1,6 @@
-#Unrolled generative adversarial networks: reduces the probability of mode collapse by playing 'k' number of steps for how the generator can be optimized
-#Very similar to long short-term memory recurrent neural networks: because the generator accumulates parameter change 'k' times
-#Simply put, an unrolled GAN uses the cost function calculated in the last few steps for generator's backprop, and the first step only for the discriminator
+#Unrolled generative adversarial networks: reduce the probability of mode collapse by playing 'k' number of steps for how the generator can be optimized
+#Very similar to long short-term memory (LSTM) recurrent neural networks: because the generator accumulates its parameter change 'k' times
+#Simply put, an unrolled GAN uses the cost function calculated in the last few steps for generator's backprop, and the only the very first step for the discriminator
 
 import os
 import argparse
@@ -309,9 +309,26 @@ def train(g_model: keras.engine.functional.Functional,
     g_loss_list = []
     for i in range(n_epochs):
         for j in range(bat_per_epoch//2):
-            X_real,y_real = generate_real_samples(dataset, n_batch)
-            d_loss_real,_ = d_model.train_on_batch(X_real, y_real)
-            X_fake,y_fake = generate_fake_samples(g_model, latent_dim, n_batch)
+           X_real, y_real = generate_real_samples(dataset, n_batch)
+            d_loss_real, _ = d_model.train_on_batch(X_real, y_real)
+
+            X_fake, y_fake = generate_fake_samples(g_model, latent_dim, n_batch)
+            d_loss_fake, _ = d_model.train_on_batch(X_fake, y_fake)
+             for k in range(unroll_steps):
+                  # Generate fake samples
+                  X_gan = generate_latent_points(latent_dim, n_batch)
+                  y_gan = np.ones((n_batch, 1))
+  
+                  # Calculate generator loss including e_hull
+                  g_loss = gan_model.train_on_batch(X_gan, y_gan)
+                  X_fake_filtered, _ = generate_fake_samples(g_model, latent_dim, n_batch)
+                  pmg_ehull = [sample[1] for sample in X_fake_filtered]  # Extracting e_hulls
+                  pmg_ehull = np.array(pmg_ehull)
+                  e_hull_loss = np.mean(pmg_ehull)  # Using mean e_hull as the loss
+                  g_loss += e_hull_loss  # Add e_hull loss to generator's loss
+                  total_g_loss = 0.5 * g_loss + 0.5 * e_hull_loss  # Combining the losses
+
+                  g_loss_list.append(total_g_loss)
             X_fake_filtered = []
             X_fake_filtered.append(pmg_ehull) #List that contain stable e_hulls
             X_fake_filtered = np.array(X_fake_filtered)
