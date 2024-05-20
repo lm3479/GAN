@@ -476,69 +476,74 @@ def train(g_model: keras.engine.functional.Functional,
     d_loss_real_list = []
     d_loss_fake_list = []
     g_loss_list = []
-
-def update_discriminator(images, noise, generator, discriminator, optimizer):
-    with tf.GradientTape() as disc_tape:
-        generated_images = generator(noise, training=True)
-        real_output = discriminator(images, training=True)
-        fake_output = discriminator(generated_images, training=True)
-        d_loss = discriminator_loss(real_output, fake_output)
-    discriminator_gradient = disc_tape.gradient(d_loss, discriminator.trainable_variables)
-    optimizer.apply_gradients(zip(discriminator_gradient, discriminator.trainable_variables))
-    return d_loss
-  
-def unroll_discriminator(images, noise_dim, batch_size, generator, discriminator, optimizer, unrolled_steps):
-    for i in range(unrolled_steps):
-        noise = tf.random.normal([batch_size, noise_dim])
-        with tf.GradientTape() as tape:
-            fake_images = generator(noise, training=True)
+    batch_size = 64
+    noise_dim = 100
+    unrolling_steps = 5
+    discriminator = ...  # Your discriminator model here
+    d_optimizer = tf.keras.optimizers.Adam(learning_rate=0.0002, beta_1=0.5)
+    g_optimizer = tf.keras.optimizers.Adam(learning_rate=0.0002, beta_1=0.5)
+    def update_discriminator(images, noise, generator, discriminator, optimizer):
+        with tf.GradientTape() as disc_tape:
+            generated_images = generator(noise, training=True)
             real_output = discriminator(images, training=True)
-            fake_output = discriminator(fake_images, training=True)
+            fake_output = discriminator(generated_images, training=True)
             d_loss = discriminator_loss(real_output, fake_output)
-        gradients = tape.gradient(d_loss, discriminator.trainable_variables)
-        optimizer.apply_gradients(zip(gradients, discriminator.trainable_variables))
-
-unrolled_d_optimizer = tf.keras.optimizers.Adam(learning_rate=0.0002, beta_1=0.5
-for image_batch in dataset:
-    images = image_batch
-    noise = tf.random.normal([batch_size, noise_dim])
+        discriminator_gradient = disc_tape.gradient(d_loss, discriminator.trainable_variables)
+        optimizer.apply_gradients(zip(discriminator_gradient, discriminator.trainable_variables))
+        return d_loss
+      
+    def unroll_discriminator(images, noise_dim, batch_size, generator, discriminator, optimizer, unrolled_steps):
+        for i in range(unrolled_steps):
+            noise = tf.random.normal([batch_size, noise_dim])
+            with tf.GradientTape() as tape:
+                fake_images = generator(noise, training=True)
+                real_output = discriminator(images, training=True)
+                fake_output = discriminator(fake_images, training=True)
+                d_loss = discriminator_loss(real_output, fake_output)
+            gradients = tape.gradient(d_loss, discriminator.trainable_variables)
+            optimizer.apply_gradients(zip(gradients, discriminator.trainable_variables))
     
-    # Update discriminator
-    d_loss = update_discriminator(images, noise, generator, discriminator, d_optimizer)
+    unrolled_d_optimizer = tf.keras.optimizers.Adam(learning_rate=0.0002, beta_1=0.5
+    for image_batch in dataset:
+        images = image_batch
+        noise = tf.random.normal([batch_size, noise_dim])
+        
+        # Update discriminator
+        d_loss = update_discriminator(images, noise, generator, discriminator, d_optimizer)
+        
+        # Unroll discriminator
+        unroll_discriminator(images, noise_dim, batch_size, generator, discriminator, unrolled_d_optimizer, unrolled_steps=5)
+        
+        # Update generator
+        noise = tf.random.normal([batch_size, noise_dim])
+        with tf.GradientTape() as gen_tape:
+            generated_images = generator(noise, training=True)
+            fake_output = discriminator(generated_images, training=True)
+            g_loss = generator_loss(fake_output)
     
-    # Unroll discriminator
-    unroll_discriminator(images, noise_dim, batch_size, generator, discriminator, unrolled_d_optimizer, unrolled_steps=5)
-    
-    # Update generator
-    noise = tf.random.normal([batch_size, noise_dim])
-    with tf.GradientTape() as gen_tape:
-        generated_images = generator(noise, training=True)
-        fake_output = discriminator(generated_images, training=True)
-        g_loss = generator_loss(fake_output)
-
-    for i in range(n_epochs):
-        for j in range(bat_per_epoch//2):
-            #Real samples from the dataset
-            X_real,y_real = generate_real_samples(dataset, n_batch)
-            d_loss_real,_ = d_model.train_on_batch(X_real, y_real)
-            #Fake samples from generator
-            X_fake,y_fake = generate_fake_samples(g_model, latent_dim, n_batch)
-            d_loss_fake, _ = d_model.train_on_batch(X_fake, y_fake)
-            #Train generator to fool discriminator
-            X_gan = generate_latent_points(latent_dim, n_batch)
-            y_gan = np.ones((n_batch,1))
-            g_loss = gan_model.train_on_batch(X_gan,y_gan)
-            #Calculating e_hull loss for generator, which will make up 50% of the total feedback
-            X_fake_filtered, _ = generate_fake_samples(g_model, latent_dim, n_batch)
-            pmg_ehull = [sample[1] for sample in X_fake_filtered]  # Extracting e_hulls
-            pmg_ehull = np.array(pmg_ehull)
-            e_hull_loss = np.mean(pmg_ehull)  # Using mean e_hull as the loss
-            g_loss += e_hull_loss  # Add e_hull loss to generator's loss
-            total_g_loss = 0.5 * g_loss + 0.5 * e_hull_loss #Partially from regular discriminator feedback & partially from e_hull
-            d_loss_real_list.append(d_loss_real)
-            d_loss_fake_list.append(d_loss_fake)
-            g_loss_list.append(g_loss)
-            g_model.save(os.path.join(save_path, 'generator'))
+        for i in range(n_epochs):
+            for j in range(bat_per_epoch//2):
+                #Real samples from the dataset
+                X_real,y_real = generate_real_samples(dataset, n_batch)
+                d_loss_real,_ = d_model.train_on_batch(X_real, y_real)
+                #Fake samples from generator
+                X_fake,y_fake = generate_fake_samples(g_model, latent_dim, n_batch)
+                d_loss_fake, _ = d_model.train_on_batch(X_fake, y_fake)
+                #Train generator to fool discriminator
+                X_gan = generate_latent_points(latent_dim, n_batch)
+                y_gan = np.ones((n_batch,1))
+                g_loss = gan_model.train_on_batch(X_gan,y_gan)
+                #Calculating e_hull loss for generator, which will make up 50% of the total feedback
+                X_fake_filtered, _ = generate_fake_samples(g_model, latent_dim, n_batch)
+                pmg_ehull = [sample[1] for sample in X_fake_filtered]  # Extracting e_hulls
+                pmg_ehull = np.array(pmg_ehull)
+                e_hull_loss = np.mean(pmg_ehull)  # Using mean e_hull as the loss
+                g_loss += e_hull_loss  # Add e_hull loss to generator's loss
+                total_g_loss = 0.5 * g_loss + 0.5 * e_hull_loss #Partially from regular discriminator feedback & partially from e_hull
+                d_loss_real_list.append(d_loss_real)
+                d_loss_fake_list.append(d_loss_fake)
+                g_loss_list.append(g_loss)
+                g_model.save(os.path.join(save_path, 'generator'))
             d_model.save(os.path.join(save_path, 'discriminator'))
             np.savetxt(os.path.join(save_path, 'd_loss_real_list'),d_loss_real_list)
             np.savetxt(os.path.join(save_path, 'd_loss_fake_list'),d_loss_fake_list)
