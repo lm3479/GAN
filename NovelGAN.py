@@ -278,8 +278,16 @@ def predict_ehull(dir, model_path, output_path, api_key):
               continue
       np.save(output_path, np.array(ehull_list))
   #Predicting distance above convex hull: anything on convex hull is considered stable
-      m3gnet_model = M3GNET.from_dir(args.m3gnet_model_path)
       stable_ehulls = []
+      m3gnet_model = M3GNET.from_dir(args.m3gnet_model_path)
+      model = m3gnet_model.Sequential
+      model.add(m3gnet.Dense(units = 64, activation=LeakyReLU, input_shape=input_dim))
+      model.compile(optimizer='adam', loss='categorical_crossentropy')
+      model.fit(X_train, y_train, epochs=10, batch_size=32)
+      with m3gnet.GradientTape() as tape:
+        predictions = model(X_batch)
+        loss = m3gnet.losses.categorical_crossentropy(y_batch, predictions)
+        gradients = tape.gradient(loss, model.trainable_variables)
 def filter_unrealistic_structures(m3gnet_model, pmg_ehull, ehull_threshold=0.1):
   if pmg_ehull <= ehull_threshold:  
       stable_ehulls.append(pmg_ehull)
