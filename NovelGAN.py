@@ -283,7 +283,7 @@ def predict_ehull(dir, model_path, output_path, api_key):
       model = m3gnet_model.Sequential
       model.add(m3gnet.Dense(units = 64, activation=LeakyReLU, input_shape=input_dim))
       model.compile(optimizer='adam', loss='categorical_crossentropy')
-      model.fit(X_train, y_train, epochs=10, batch_size=32)
+      model.fit(X_train, y_train, epochs=100, batch_size=70)
       with m3gnet.GradientTape() as tape:
         predictions = model(X_batch)
         loss = m3gnet.losses.categorical_crossentropy(y_batch, predictions)
